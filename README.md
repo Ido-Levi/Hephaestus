@@ -9,7 +9,7 @@
 
 **What if AI workflows could write their own instructions as agents discover what needs to be done?**
 
-[Quick Start](#-quick-start) • [Documentation](https://ido-levi.github.io/Hephaestus/) • [Examples](example_workflows/)
+[Quick Start](https://ido-levi.github.io/Hephaestus/docs/getting-started/quick-start) • [Documentation](https://ido-levi.github.io/Hephaestus/) • [Examples](example_workflows/)
 
 </div>
 
