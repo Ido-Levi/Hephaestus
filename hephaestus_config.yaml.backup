@@ -1,0 +1,143 @@
+# Hephaestus Configuration File
+# This file contains all configuration for the Hephaestus system
+
+# Server Configuration
+server:
+  host: "0.0.0.0"
+  port: 8000
+  enable_cors: true
+
+# Paths Configuration
+paths:
+  database: "./hephaestus.db"
+  phases_folder: "./example_workflows/crackme_solving"
+  worktree_base: "/tmp/hephaestus_worktrees"
+  project_root: "/Users/idol/hephaestus_prd_tester/url_shortener_v2"  # Default working directory for agents
+
+# Git Configuration
+git:
+  main_repo_path: "/Users/idol/hephaestus_prd_tester/url_shortener_v2"  # Must be a git repo
+  worktree_branch_prefix: "agent-"
+  auto_commit: true
+  conflict_resolution: "newest_file_wins"  # or "manual"
+
+# LLM Configuration
+llm:
+  # Keep OpenAI embeddings as requested
+  embedding_model: "text-embedding-3-large"
+
+  # Used by: SDK workflows, legacy single-provider mode, and when multi-provider config is unavailable
+  # This replaces the deprecated LLM_MODEL env variable
+  default_provider: "openrouter"
+  default_model: "openai/gpt-oss-120b"
+  default_openrouter_provider: "cerebras"  # For OpenRouter, specify which provider to use
+  default_temperature: 0.7
+  default_max_tokens: 4000
+
+  # Provider configurations
+  # NOTE: models lists are not validated - you can use any model from the provider
+  providers:
+    openai:
+      api_key_env: "OPENAI_API_KEY"
+
+    openrouter:
+      api_key_env: "OPENROUTER_API_KEY"
+      base_url: "https://openrouter.ai/api/v1"
+
+    groq:
+      api_key_env: "GROQ_API_KEY"
+
+  # Model assignment per component
+  model_assignments:
+    task_enrichment:
+      provider: "openrouter"
+      openrouter_provider: "Cerebras"
+      model: "openai/gpt-oss-120b"
+      temperature: 0.7
+      max_tokens: 4000
+
+    agent_monitoring:
+      provider: "openrouter"
+      openrouter_provider: "Cerebras"
+      model: "openai/gpt-oss-120b"
+      temperature: 0.3
+      max_tokens: 2000
+
+    guardian_analysis:
+      provider: "openrouter"
+      openrouter_provider: "Cerebras"
+      model: "openai/gpt-oss-120b"
+      temperature: 0.5
+      max_tokens: 8000
+
+    conductor_analysis:
+      provider: "openrouter"
+      openrouter_provider: "Cerebras"
+      model: "openai/gpt-oss-120b"
+      temperature: 0.4
+      max_tokens: 4000
+
+    agent_prompts:
+      provider: "openrouter"
+      openrouter_provider: "Cerebras"
+      model: "openai/gpt-oss-120b"
+      temperature: 0.8
+      max_tokens: 4000
+
+# Agent Configuration
+agents:
+  default_cli_tool: "claude"
+  cli_model: "GLM-4.6"  # Model to use: "sonnet", "opus", "haiku", or "GLM-4.6"
+#  cli_model: "GLM-4.6"  # Model to use: "sonnet", "opus", "haiku", or "GLM-4.6"
+  glm_api_token_env: "GLM_API_TOKEN"  # Environment variable name for GLM API token
+  tmux_session_prefix: "agent"
+  health_check_interval: 60  # seconds
+  max_health_failures: 3
+  termination_delay: 5  # seconds to wait before terminating
+
+# Vector Store Configuration
+vector_store:
+  qdrant_url: "http://localhost:6333"
+  collection_prefix: "hephaestus"
+  embedding_dimension: 1536
+
+# Monitoring Configurationr
+monitoring:
+  enabled: true
+  interval_seconds: 60
+  log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  log_format: "json"  # or "text"
+  stuck_agent_threshold: 300  # seconds of inactivity before considered stuck
+  guardian_min_agent_age_seconds: 60  # Grace period before Guardian starts monitoring new agents
+
+# MCP Server Configuration
+mcp:
+  auth_required: false
+  session_timeout: 3600  # seconds
+  max_concurrent_agents: 6  # Set to 2 for testing queue functionality
+
+# Task Deduplication Configuration
+task_deduplication:
+  enabled: true
+  similarity_threshold: 0.999  # Tasks above this are considered duplicates
+  related_threshold: 0.5     # Tasks above this are considered related
+  embedding_model: "text-embedding-3-large"
+  embedding_dimension: 3072  # Dimension for text-embedding-3-large
+  batch_size: 100  # Number of tasks to compare at once for performance
+
+# Diagnostic Agent Configuration
+diagnostic_agent:
+  enabled: false
+  cooldown_seconds: 60  # Minimum time between diagnostic agent spawns
+  min_stuck_time_seconds: 60  # How long workflow must be stuck before triggering diagnostic
+  max_agents_to_analyze: 15  # Number of recent agents to include in diagnostic context
+  max_conductor_analyses: 5  # Number of recent Conductor analyses to include
+  max_tasks_per_run: 5  # Maximum tasks a diagnostic agent can create
+
+# Ticket Tracking Configuration
+ticket_tracking:
+  enabled: true  # Enable/disable ticket tracking system
+  embedding:
+    model: "text-embedding-3-large"  # OpenAI embedding model
+    dimensions: 3072                 # Vector dimensions
+    provider: "openai"               # openai or anthropic

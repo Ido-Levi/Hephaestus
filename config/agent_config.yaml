@@ -1,0 +1,76 @@
+# CLI Tool Configurations
+cli_tools:
+  claude:
+    command: "claudex"
+    flags: "-c"
+    health_pattern: "Assistant:"
+    stuck_patterns:
+      - "rate limit exceeded"
+      - "waiting for user input"
+      - "API error"
+      - "connection timeout"
+
+  codex:
+    command: "codex"
+    flags: "--interactive"
+    health_pattern: ">"
+    stuck_patterns:
+      - "error:"
+      - "connection failed"
+      - "timeout"
+      - "invalid response"
+
+# Agent Defaults
+agent_defaults:
+  default_cli_tool: "claude"
+  max_retries: 3
+  health_check_interval: 300  # seconds
+  startup_timeout: 30  # seconds to wait for agent to start
+
+# Task Complexity Levels
+task_complexity:
+  simple:
+    range: [1, 3]
+    timeout_multiplier: 1.0
+    memory_context_limit: 10
+
+  medium:
+    range: [4, 6]
+    timeout_multiplier: 2.0
+    memory_context_limit: 15
+
+  complex:
+    range: [7, 10]
+    timeout_multiplier: 3.0
+    memory_context_limit: 20
+
+# Memory Settings
+memory_settings:
+  max_context_memories: 20
+  similarity_threshold: 0.7
+  deduplication_threshold: 0.95
+  weights:
+    recency: 0.2
+    relevance: 0.5
+    similarity: 0.3
+
+# Monitoring Thresholds
+monitoring:
+  health_check_interval: 60  # seconds
+  stuck_detection:
+    no_output_minutes: 5
+    repeated_error_count: 3
+    idle_prompt_minutes: 3
+
+  intervention_strategies:
+    nudge:
+      max_attempts: 2
+      wait_between_attempts: 120  # seconds
+
+    restart:
+      max_attempts: 1
+      preserve_context: true
+
+    recreate:
+      enhanced_prompt: true
+      include_failure_context: true

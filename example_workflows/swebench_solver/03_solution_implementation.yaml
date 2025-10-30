@@ -1,0 +1,123 @@
+description: |
+  FOCUS: Implement the solution from implementation.md and test if it works.
+  Read the implementation.md file from Phase 2, follow the instructions exactly,
+  make the code changes, and test if they fix the issue. If not working, create
+  a new Phase 2 task to explore a different approach.
+
+Done_Definitions:
+  - implementation.md has been read and understood
+  - Code changes from implementation.md have been applied exactly
+  - Reproduction test has been run to check if issue is fixed
+  - "If fix works: Phase 4 task created for comprehensive testing"
+  - "If fix doesn't work: New Phase 2 task created with different approach"
+  - No unrelated changes made to the codebase
+
+working_directory: "/Users/idol/SWEBench_Hep_Problems/sphinx-doc__sphinx-7757/sphinx"
+
+#validation:
+#  enabled: true
+#  criteria:
+#    - description: "Code changes implemented"
+#      check_type: "manual_verification"
+#      evidence_required: true
+#
+#    - description: "No syntax errors in modified files"
+#      check_type: "command_success"
+#      command: "python -m py_compile {modified_files} || true"
+#
+#    - description: "Implementation matches the plan"
+#      check_type: "manual_verification"
+#      evidence_required: true
+#
+#    - description: "Code follows project style"
+#      check_type: "manual_verification"
+#      evidence_required: true
+#
+#    - description: "Changes are minimal and focused"
+#      check_type: "code_review"
+#      focus_areas: ["modified files"]
+#
+#    - description: "Initial test of fix shows it works"
+#      check_type: "manual_verification"
+#      evidence_required: true
+#
+#  validator_instructions: |
+#    Verify the implementation:
+#    - Changes address all issue requirements
+#    - Only necessary code was modified
+#    - No unrelated changes were made
+#    - Code style matches the project
+#    - Edge cases are handled properly
+#    - Basic testing confirms the fix works
+#    - Ready for comprehensive testing
+
+Additional_Notes: |
+  📋 FOLLOW implementation.md EXACTLY!
+
+  YOUR WORKFLOW:
+  ═══════════════════════════════════════════════════════════════════════
+  1. READ implementation.md from your task description
+  2. APPLY the changes EXACTLY as specified
+  3. RUN the reproduction test from reproduction.md
+  4. CHECK if the issue is fixed:
+
+  IF FIXED ✅:
+    - Create Phase 4 task: "Phase 4: Comprehensive testing of fix"
+    - Include phase_id=4 and list of modified files
+
+  IF NOT FIXED ❌:
+    - Create NEW Phase 2 task: "Phase 2: Explore alternative fix approach"
+    - Include phase_id=2
+    - Describe why current approach didn't work
+    - Suggest different area to investigate
+
+  IMPORTANT:
+  - Do NOT try to debug or modify the approach yourself
+  - If it doesn't work, let Phase 2 explore a new approach
+  - Only make changes specified in implementation.md
+  ═══════════════════════════════════════════════════════════════════════
+
+  Implementation Guidelines:
+
+  1. MINIMAL CHANGES ONLY:
+     - Change only what's necessary to fix the issue
+     - Don't refactor unrelated code
+     - Don't update comments unless directly relevant
+     - Don't change formatting of unmodified lines
+
+  2. FOLLOW PROJECT PATTERNS:
+     - Match the existing code style exactly
+     - Use the same naming conventions
+     - Follow established error handling patterns
+     - Maintain consistency with surrounding code
+
+  3. HANDLE EDGE CASES:
+     - Address all cases mentioned in the issue
+     - Consider boundary conditions
+     - Ensure robust error handling
+     - Don't introduce new failure modes
+
+  4. TEST AS YOU GO:
+     - After each change, verify it doesn't break syntax
+     - Run the specific test or reproduction case
+     - Ensure the basic fix works before proceeding
+
+  5. DOCUMENT YOUR CHANGES:
+     - Keep track of every file you modify
+     - Note what each change does
+     - Save memories about implementation decisions
+
+  IMPORTANT: Resist the urge to "improve" code beyond the issue requirements.
+  Your goal is a minimal, focused patch that solves exactly the stated problem.
+
+Outputs: |
+  - Modified source files with the implementation from implementation.md
+  - Test results showing if the fix works
+  - EITHER:
+    * Phase 4 task if fix works
+    * New Phase 2 task if fix doesn't work
+
+Next_Steps: |
+  - If fix works: Create Phase 4 task for comprehensive testing
+  - If fix doesn't work: Create Phase 2 task to explore different approach
+  - The description should reference which implementation.md was tried

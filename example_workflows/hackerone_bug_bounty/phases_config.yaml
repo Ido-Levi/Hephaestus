@@ -1,0 +1,108 @@
+name: "HackerOne Bug Bounty Hunter"
+description: "Multi-phase workflow for discovering and reporting security vulnerabilities through HackerOne bug bounty programs with extensive parallel exploration and hive-mind coordination"
+has_result: true
+result_criteria: |
+  VALIDATION REQUIREMENTS FOR BUG BOUNTY SUBMISSION ACCEPTANCE:
+
+  ════════════════════════════════════════════════════════════════════
+  CRITICAL: A SUBMISSION IS ONLY VALID IF ALL REQUIREMENTS ARE MET
+  ════════════════════════════════════════════════════════════════════
+
+  1. **SCOPE COMPLIANCE** (MANDATORY - VIOLATIONS CAN RESULT IN BAN)
+     ✓ Asset is in the allowed domain from allowed_domain.txt
+     ✓ Asset is listed as in-scope in OVERVIEW.md
+     ✓ Vulnerability type is in the in-scope list from OVERVIEW.md
+     ✓ Vulnerability type is NOT in the out-of-scope list
+     ✓ No rules of engagement were violated during discovery
+     ✓ Testing was performed only on self-created test accounts
+
+  2. **REPRODUCIBILITY** (MANDATORY)
+     ✓ Bug reproduces consistently (tested 3+ times)
+     ✓ Clear, step-by-step reproduction instructions provided
+     ✓ Working proof of concept included
+     ✓ All prerequisites documented (accounts, permissions, etc.)
+     ✓ Expected vs actual behavior clearly demonstrated
+
+  3. **SECURITY IMPACT** (MANDATORY)
+     ✓ Real security impact demonstrated (not theoretical)
+     ✓ Impact aligns with program's severity definitions
+     ✓ Confidentiality, integrity, or availability affected
+     ✓ Business risk clearly articulated
+     ✓ Attack scenario is realistic and plausible
+
+  4. **SUBMISSION QUALITY** (MANDATORY)
+     ✓ Follows exact HackerOne markdown format
+     ✓ Professional, clear, and concise language
+     ✓ Summary section: Brief, accurate vulnerability description
+     ✓ Steps to Reproduce: Numbered, detailed, complete steps
+     ✓ Supporting Material: Screenshots, logs, PoC code included
+     ✓ No sensitive data exposed in submission
+
+  5. **TESTING COMPLIANCE** (MANDATORY)
+     ✓ Rate limits respected during discovery
+     ✓ No denial of service attacks performed
+     ✓ No social engineering attempted
+     ✓ No access to real user data
+     ✓ No aggressive automated scanning
+     ✓ Testing stopped immediately if sensitive data accessed
+     ✓ Only @wearehackerone.com email accounts used
+
+  ════════════════════════════════════════════════════════════════════
+  REQUIRED SUBMISSION FORMAT (HackerOne Standard):
+  ════════════════════════════════════════════════════════════════════
+
+  ## Summary:
+  [Clear, concise summary of the vulnerability - 2-3 sentences max]
+
+  ## Steps To Reproduce:
+  [Detailed, numbered steps that allow exact reproduction]
+
+    1. [First step with specific details]
+    2. [Second step with exact URLs, parameters, values]
+    3. [Continue until vulnerability is demonstrated]
+
+  ## Impact:
+  [Explain the security impact - what can an attacker do?]
+  [How does this affect confidentiality, integrity, or availability?]
+  [What is the business risk?]
+
+  ## Supporting Material/References:
+  [Any additional evidence]
+
+    * Screenshot showing [specific evidence]
+    * Network log showing [specific request/response]
+    * PoC script: [filename or inline code]
+    * Reference: [relevant documentation]
+
+  ════════════════════════════════════════════════════════════════════
+  VALIDATION DECISION CRITERIA:
+  ════════════════════════════════════════════════════════════════════
+
+  ✅ APPROVE if and only if:
+     - ALL scope compliance checks pass
+     - Bug reproduces reliably with provided steps
+     - Real security impact is demonstrated
+     - Submission is professional and complete
+     - No testing violations occurred
+
+  ❌ REJECT if:
+     - Asset or vulnerability type out of scope
+     - Cannot reproduce the bug
+     - Only theoretical impact (no real exploit)
+     - Missing steps, PoC, or evidence
+     - Rules of engagement violated
+     - Submission quality is poor
+
+  When validating:
+  1. First verify asset and vulnerability type are in-scope
+  2. Check OVERVIEW.md out-of-scope list carefully
+  3. Attempt to reproduce using exact steps provided
+  4. Verify real security impact exists
+  5. Ensure submission format is professional
+  6. Confirm no testing violations occurred
+
+  REMEMBER: Better to reject a borderline submission than risk
+  program ban. Only approve high-quality, clearly in-scope,
+  reproducible vulnerabilities with demonstrated real-world impact.
+
+on_result_found: "continue"

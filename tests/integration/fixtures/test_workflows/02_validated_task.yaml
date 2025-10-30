@@ -1,0 +1,34 @@
+description: |
+  Test phase with validation enabled.
+  Verifies validation system works correctly.
+
+Done_Definitions:
+  - Main file created
+  - Test file exists
+  - All checks pass
+
+validation:
+  enabled: true
+  criteria:
+    - description: "Main file exists"
+      check_type: "file_exists"
+      target: ["main.py"]
+
+    - description: "Test file exists"
+      check_type: "file_exists"
+      target: ["test.py"]
+
+    - description: "Files contain content"
+      check_type: "manual_verification"
+      evidence_required: true
+
+  validator_instructions: |
+    Verify that both files exist and contain meaningful content.
+    This is for integration testing purposes.
+
+Additional_Notes: |
+  Used for testing validation flow with multiple iterations.
+
+Outputs: |
+  - main.py: Main application file
+  - test.py: Test file

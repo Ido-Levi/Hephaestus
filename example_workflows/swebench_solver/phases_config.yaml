@@ -1,0 +1,103 @@
+name: "SWEBench-Verified Problem Solver"
+description: "Multi-phase workflow for solving SWEBench-Verified issues through analysis, investigation, implementation, and comprehensive validation"
+has_result: true
+result_criteria: |
+  VALIDATION REQUIREMENTS FOR SWEBENCH SOLUTION ACCEPTANCE:
+
+  ════════════════════════════════════════════════════════════════════
+  CRITICAL: A SOLUTION IS ONLY VALID IF ALL REQUIREMENTS ARE MET
+  ════════════════════════════════════════════════════════════════════
+
+  1. **ISSUE REQUIREMENTS VERIFICATION** (MANDATORY)
+     ✓ Every requirement from the problem statement is addressed
+     ✓ Expected behavior exactly matches issue description
+     ✓ All edge cases mentioned in the issue are handled correctly
+     ✓ No unintended side effects introduced
+
+  2. **TEST SUITE VALIDATION** (MANDATORY)
+     ✓ Full test suite runs successfully (provide complete output)
+     ✓ ALL existing tests pass - NO REGRESSION allowed
+     ✓ Tests specific to the issue pass (if they exist)
+     ✓ Any new tests added for the fix also pass
+     ✓ Include the exact test commands and their full output
+
+  3. **REPRODUCTION EVIDENCE** (MANDATORY)
+     ✓ Original failing case now works correctly
+     ✓ Before/after behavior clearly demonstrated
+     ✓ Console output, error messages, or results showing the fix
+     ✓ Step-by-step reproduction instructions included
+
+  4. **CODE QUALITY VERIFICATION** (MANDATORY)
+     ✓ Changes follow project's coding conventions
+     ✓ No linting errors or warnings introduced
+     ✓ No type checking errors (if applicable)
+     ✓ Code is clean, readable, and maintainable
+     ✓ Only necessary changes included (no extra modifications)
+
+  5. **PATCH VALIDATION** (MANDATORY)
+     ✓ Complete git patch included in submission
+     ✓ Patch applies cleanly to the base commit
+     ✓ Patch contains ONLY the necessary changes
+     ✓ Patch format is correct and can be applied with git apply
+
+  ════════════════════════════════════════════════════════════════════
+  REQUIRED SUBMISSION FORMAT:
+  ════════════════════════════════════════════════════════════════════
+
+  The submission markdown file MUST include these sections:
+
+  ## 1. Problem Summary
+  - Brief description of the issue
+  - Key requirements addressed
+
+  ## 2. Solution Overview
+  - What was changed and why
+  - Files modified with brief explanations
+
+  ## 3. Test Results
+  ```
+  [FULL test suite output showing all tests passing]
+  ```
+
+  ## 4. Reproduction Evidence
+  - Before: [Show the failing case]
+  - After: [Show the working case]
+  - Include exact commands and outputs
+
+  ## 5. Code Quality Checks
+  - Linting results (if applicable)
+  - Type checking results (if applicable)
+
+  ## 6. Git Patch
+  ```patch
+  [COMPLETE git diff patch that can be applied with git apply]
+  ```
+
+  ════════════════════════════════════════════════════════════════════
+  VALIDATION DECISION CRITERIA:
+  ════════════════════════════════════════════════════════════════════
+
+  ✅ APPROVE if and only if:
+     - ALL mandatory requirements are met
+     - Test suite fully passes with no regression
+     - Patch is clean and minimal
+     - Evidence clearly demonstrates the fix works
+
+  ❌ REJECT if:
+     - Any test fails or shows regression
+     - Requirements not fully addressed
+     - Patch includes unnecessary changes
+     - Missing evidence of fix working
+     - Code quality issues present
+
+  When validating:
+  1. First verify the patch applies cleanly
+  2. Check that all tests pass (no "trust" - verify the output)
+  3. Confirm the specific issue is fixed
+  4. Ensure no extra changes snuck in
+  5. Validate code quality and style
+
+  REMEMBER: The goal is a production-ready patch that solves the exact
+  issue described without breaking anything else. Be thorough and strict.
+
+on_result_found: "stop_all"

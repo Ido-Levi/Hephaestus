@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  # Qdrant vector database
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: hephaestus-qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+
+  # Hephaestus MCP Server
+  hephaestus-server:
+    build: .
+    container_name: hephaestus-server
+    command: python run_server.py
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./docs:/app/docs
+      - /var/run/docker.sock:/var/run/docker.sock  # For tmux session management
+    environment:
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - LLM_MODEL=${LLM_MODEL:-gpt-4-turbo-preview}
+      - DATABASE_PATH=/app/data/hephaestus.db
+      - QDRANT_URL=http://qdrant:6333
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8000
+    depends_on:
+      - qdrant
+    restart: unless-stopped
+
+  # Hephaestus Monitoring Loop
+  hephaestus-monitor:
+    build: .
+    container_name: hephaestus-monitor
+    command: python run_monitor.py
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./docs:/app/docs
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - LLM_MODEL=${LLM_MODEL:-gpt-4-turbo-preview}
+      - DATABASE_PATH=/app/data/hephaestus.db
+      - QDRANT_URL=http://qdrant:6333
+      - MONITORING_INTERVAL_SECONDS=${MONITORING_INTERVAL_SECONDS:-60}
+    depends_on:
+      - qdrant
+      - hephaestus-server
+    restart: unless-stopped
+
+volumes:
+  qdrant_data:

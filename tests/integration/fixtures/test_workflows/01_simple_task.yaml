@@ -1,0 +1,15 @@
+description: |
+  Simple test phase for integration testing.
+  Creates basic files to verify agent functionality.
+
+Done_Definitions:
+  - Test file created
+  - Content is valid
+  - Work completed
+
+Additional_Notes: |
+  This is a simplified phase for testing.
+  Agents should create the specified files.
+
+Outputs: |
+  Test files in working directory

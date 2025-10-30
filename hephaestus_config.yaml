@@ -1,0 +1,139 @@
+# Hephaestus Configuration File
+# This file contains all configuration for the Hephaestus system
+
+# Server Configuration
+server:
+  host: "0.0.0.0"
+  port: 8000
+  enable_cors: true
+
+# Paths Configuration
+paths:
+  database: "./hephaestus.db"
+  phases_folder: "./example_workflows/crackme_solving"
+  worktree_base: "/tmp/hephaestus_worktrees"
+  project_root: "./your_project"  # Default working directory for agents
+
+# Git Configuration
+git:
+  main_repo_path: "./your_project"  # Must be a git repository
+  worktree_branch_prefix: "agent-"
+  auto_commit: true
+  conflict_resolution: "newest_file_wins"  # Options: "newest_file_wins" or "manual"
+
+# LLM Configuration
+llm:
+  embedding_model: "text-embedding-3-large"
+
+  # Default LLM settings for SDK workflows and legacy single-provider mode
+  default_provider: "openrouter"
+  default_model: "openai/gpt-oss-120b"
+  default_openrouter_provider: "cerebras"
+  default_temperature: 0.7
+  default_max_tokens: 4000
+
+  # Provider configurations
+  providers:
+    openai:
+      api_key_env: "OPENAI_API_KEY"
+
+    openrouter:
+      api_key_env: "OPENROUTER_API_KEY"
+      base_url: "https://openrouter.ai/api/v1"
+
+    groq:
+      api_key_env: "GROQ_API_KEY"
+
+  # Model assignments per system component
+  model_assignments:
+    task_enrichment:
+      provider: "openrouter"
+      openrouter_provider: "Cerebras"
+      model: "openai/gpt-oss-120b"
+      temperature: 0.7
+      max_tokens: 4000
+
+    agent_monitoring:
+      provider: "openrouter"
+      openrouter_provider: "Cerebras"
+      model: "openai/gpt-oss-120b"
+      temperature: 0.3
+      max_tokens: 2000
+
+    guardian_analysis:
+      provider: "openrouter"
+      openrouter_provider: "Cerebras"
+      model: "openai/gpt-oss-120b"
+      temperature: 0.5
+      max_tokens: 8000
+
+    conductor_analysis:
+      provider: "openrouter"
+      openrouter_provider: "Cerebras"
+      model: "openai/gpt-oss-120b"
+      temperature: 0.4
+      max_tokens: 4000
+
+    agent_prompts:
+      provider: "openrouter"
+      openrouter_provider: "Cerebras"
+      model: "openai/gpt-oss-120b"
+      temperature: 0.8
+      max_tokens: 4000
+
+# Agent Configuration
+agents:
+  default_cli_tool: "claude"
+  cli_model: "GLM-4.6"  # Options: "sonnet", "opus", "haiku", or "GLM-4.6"
+  glm_api_token_env: "GLM_API_TOKEN"
+  tmux_session_prefix: "agent"
+  health_check_interval: 60
+  max_health_failures: 3
+  termination_delay: 5
+
+# Vector Store Configuration
+vector_store:
+  qdrant_url: "http://localhost:6333"
+  collection_prefix: "hephaestus"
+  embedding_dimension: 1536
+
+# Monitoring Configuration
+monitoring:
+  enabled: true
+  interval_seconds: 60
+  log_level: "INFO"  # Options: DEBUG, INFO, WARNING, ERROR
+  log_format: "json"  # Options: "json" or "text"
+  stuck_agent_threshold: 300
+  guardian_min_agent_age_seconds: 60
+
+# MCP Server Configuration
+mcp:
+  auth_required: false
+  session_timeout: 3600
+  max_concurrent_agents: 6
+
+# Task Deduplication Configuration
+task_deduplication:
+  enabled: true
+  similarity_threshold: 0.999
+  related_threshold: 0.5
+  embedding_model: "text-embedding-3-large"
+  embedding_dimension: 3072
+  batch_size: 100
+
+# Diagnostic Agent Configuration
+diagnostic_agent:
+  enabled: false
+  cooldown_seconds: 60
+  min_stuck_time_seconds: 60
+  max_agents_to_analyze: 15
+  max_conductor_analyses: 5
+  max_tasks_per_run: 5
+
+# Ticket Tracking Configuration
+ticket_tracking:
+  enabled: true
+  embedding:
+    model: "text-embedding-3-large"
+    dimensions: 3072
+    provider: "openai"

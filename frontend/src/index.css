@@ -1,0 +1,214 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply antialiased;
+  }
+}
+
+@layer utilities {
+  .line-clamp-1 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  .markdown-body {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: theme('colors.gray.900');
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+
+  .markdown-body * {
+    max-width: 100%;
+  }
+
+  .markdown-body h1,
+  .markdown-body h2,
+  .markdown-body h3,
+  .markdown-body h4 {
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    word-break: break-word;
+  }
+
+  .markdown-body h1 {
+    font-size: 1.5rem;
+  }
+
+  .markdown-body h2 {
+    font-size: 1.25rem;
+  }
+
+  .markdown-body h3 {
+    font-size: 1.1rem;
+  }
+
+  .markdown-body p {
+    margin-bottom: 1rem;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  .markdown-body ul,
+  .markdown-body ol {
+    padding-left: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .markdown-body pre {
+    background-color: theme('colors.gray.900');
+    color: theme('colors.gray.50');
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    max-width: 100%;
+  }
+
+  .markdown-body code {
+    background-color: theme('colors.gray.100');
+    color: theme('colors.gray.900');
+    padding: 0.15rem 0.35rem;
+    border-radius: 0.25rem;
+    font-size: 0.85rem;
+    word-break: break-word;
+  }
+
+  .markdown-body pre code {
+    background-color: transparent;
+    color: theme('colors.gray.50');
+    padding: 0;
+    word-break: normal;
+    overflow-wrap: normal;
+  }
+
+  .markdown-body table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1.25rem;
+    font-size: 0.85rem;
+    table-layout: fixed;
+    overflow-x: auto;
+    display: block;
+  }
+
+  .markdown-body th,
+  .markdown-body td {
+    border: 1px solid theme('colors.gray.200');
+    padding: 0.5rem 0.75rem;
+    vertical-align: top;
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+
+  .markdown-body blockquote {
+    border-left: 4px solid theme('colors.blue.200');
+    padding-left: 1rem;
+    color: theme('colors.gray.600');
+    margin: 1rem 0;
+  }
+
+  /* Syntax highlighting fixes */
+  .markdown-body .hljs {
+    background-color: theme('colors.gray.900');
+    color: theme('colors.gray.50');
+  }
+
+  /* Ensure all highlighted code has proper colors */
+  .markdown-body pre .hljs-string,
+  .markdown-body pre .hljs-literal,
+  .markdown-body pre .hljs-symbol,
+  .markdown-body pre .hljs-bullet,
+  .markdown-body pre .hljs-addition {
+    color: #98c379;
+  }
+
+  .markdown-body pre .hljs-keyword,
+  .markdown-body pre .hljs-selector-tag,
+  .markdown-body pre .hljs-deletion {
+    color: #e06c75;
+  }
+
+  .markdown-body pre .hljs-number,
+  .markdown-body pre .hljs-link {
+    color: #d19a66;
+  }
+
+  .markdown-body pre .hljs-comment,
+  .markdown-body pre .hljs-quote,
+  .markdown-body pre .hljs-meta {
+    color: #5c6370;
+  }
+
+  .markdown-body pre .hljs-title,
+  .markdown-body pre .hljs-section,
+  .markdown-body pre .hljs-name,
+  .markdown-body pre .hljs-type,
+  .markdown-body pre .hljs-attr {
+    color: #61aeee;
+  }
+
+  .markdown-body pre .hljs-variable,
+  .markdown-body pre .hljs-template-variable,
+  .markdown-body pre .hljs-class .hljs-title {
+    color: #c678dd;
+  }
+
+  .markdown-body pre .hljs-built_in {
+    color: #56b6c2;
+  }
+
+  /* Default text color for code blocks */
+  .markdown-body pre,
+  .markdown-body pre * {
+    color: theme('colors.gray.50');
+  }
+}
+
+/* React Flow styles */
+.react-flow__node {
+  cursor: pointer;
+}
+
+.react-flow__node:hover {
+  filter: brightness(1.1);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-400 rounded;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-500;
+}
