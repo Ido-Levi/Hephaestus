@@ -1,0 +1,72 @@
+name: 📚 Documentation Issue
+description: Report missing, unclear, or incorrect documentation
+labels: ["documentation", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Help us improve the documentation! Let us know what's unclear or missing.
+
+  - type: dropdown
+    id: issue_type
+    attributes:
+      label: Issue Type
+      options:
+        - Missing documentation
+        - Unclear/confusing documentation
+        - Incorrect/outdated documentation
+        - Broken links
+        - Missing examples
+        - Need more detail
+    validations:
+      required: true
+
+  - type: textarea
+    id: location
+    attributes:
+      label: Documentation Location
+      description: Where is the documentation issue?
+      placeholder: |
+        - URL: https://ido-levi.github.io/Hephaestus/docs/guides/phases-system
+        - Or file: website/docs/guides/phases-system.md
+        - Or section: "Creating Phase Definitions" in Quick Start
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the Problem?
+      description: Describe what's unclear, missing, or incorrect
+      placeholder: |
+        The guide explains how to create phase YAML files but doesn't show
+        how to use Python phase definitions. There's a brief mention but no
+        complete example with all required fields...
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested Improvement
+      description: How could this be better?
+      placeholder: |
+        Add a complete Python phase example showing:
+        - Full Phase object with all fields
+        - How to pass it to HephaestusSDK
+        - Example of validation criteria
+        - Link to working example in example_workflows/
+
+  - type: textarea
+    id: context
+    attributes:
+      label: User Context
+      description: What were you trying to do when you found this issue?
+      placeholder: "I was trying to create a custom workflow for code review..."
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I'd be willing to submit a PR to improve this documentation

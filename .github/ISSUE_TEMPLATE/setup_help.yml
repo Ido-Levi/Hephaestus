@@ -1,0 +1,101 @@
+name: ⚙️ Setup/Configuration Help
+description: Get help with installation, configuration, or setup issues
+labels: ["help-wanted", "setup"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Having trouble getting Hephaestus set up? Let us know what's not working!
+
+  - type: textarea
+    id: issue
+    attributes:
+      label: What's Not Working?
+      description: Describe the setup/configuration issue
+      placeholder: |
+        I've installed all dependencies and set up API keys, but when I run
+        `python run_server.py`, I get "Connection refused" errors...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: setup_stage
+    attributes:
+      label: Setup Stage
+      options:
+        - Initial installation (pip install)
+        - Environment configuration (.env)
+        - Database initialization
+        - MCP server setup
+        - Claude Code integration
+        - Qdrant connection
+        - Frontend setup
+        - Running first workflow
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps_taken
+    attributes:
+      label: Steps You've Taken
+      description: What have you tried so far?
+      placeholder: |
+        1. Cloned repository
+        2. Created .env with API keys
+        3. Ran `python scripts/init_db.py` - success
+        4. Started Qdrant with Docker - running on 6333
+        5. Ran `python run_server.py` - got error
+    validations:
+      required: true
+
+  - type: textarea
+    id: error_message
+    attributes:
+      label: Error Message
+      description: Copy and paste the full error message
+      render: shell
+      placeholder: |
+        ERROR: Connection refused
+        Traceback (most recent call last):
+          File "run_server.py", line 45, in <module>
+            ...
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment Details
+      description: Your system setup
+      placeholder: |
+        - OS: Ubuntu 22.04
+        - Python: 3.11.2
+        - Docker: 24.0.5
+        - Claude Code: Installed via npm
+        - API Keys: OpenAI, OpenRouter (Cerebras)
+    validations:
+      required: true
+
+  - type: textarea
+    id: config_files
+    attributes:
+      label: Relevant Configuration
+      description: Share relevant parts of your config (remove API keys!)
+      render: yaml
+      placeholder: |
+        # hephaestus_config.yaml
+        llm:
+          default_provider: "openrouter"
+          default_model: "openai/gpt-oss-120b"
+
+        agents:
+          default_cli_tool: "claude"
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I've followed the Quick Start guide
+        - label: I've checked my API keys are valid
+        - label: I've verified required services are running (Docker, Qdrant)
+        - label: I've searched existing issues

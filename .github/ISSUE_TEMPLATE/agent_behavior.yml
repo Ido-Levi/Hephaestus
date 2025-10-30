@@ -1,0 +1,98 @@
+name: 🤖 Agent Behavior Issue
+description: Report issues with agent behavior, coordination, or Guardian monitoring
+labels: ["agent-behavior", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for issues related to how agents behave, coordinate, or get monitored.
+
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Observed Behavior
+      description: What are the agents doing (or not doing)?
+      placeholder: |
+        Guardian keeps sending "stuck" interventions to agents that are actually
+        making progress, causing unnecessary interruptions...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: issue_type
+    attributes:
+      label: Issue Type
+      options:
+        - Agents stuck/not progressing
+        - Guardian false positives (steering when not needed)
+        - Guardian not intervening when should
+        - Agents duplicating work
+        - Agents ignoring phase instructions
+        - Task spawning issues
+        - Agents drifting from goals
+        - Memory/context issues
+        - Coordination conflicts
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Workflow Context
+      description: What workflow/phases are you running?
+      placeholder: |
+        - Workflow: Bug bounty security testing
+        - Phases: Recon (1) → Investigation (2) → Validation (3)
+        - 5 agents active across all phases
+    validations:
+      required: true
+
+  - type: textarea
+    id: trajectory
+    attributes:
+      label: Agent Trajectory
+      description: What has the agent been doing? (check logs/monitor.log or frontend)
+      placeholder: |
+        Agent started in Phase 1, completed recon task successfully,
+        spawned 3 Phase 2 tasks, but then keeps spawning duplicate Phase 2 tasks...
+
+  - type: textarea
+    id: guardian_analysis
+    attributes:
+      label: Guardian Analysis (if available)
+      description: What is Guardian reporting? (from logs/monitor.log or frontend trajectory view)
+      render: shell
+      placeholder: |
+        [Guardian] Agent agent-xyz alignment: 45%
+        [Guardian] Drift detected: spawning duplicate tasks
+        [Guardian] Intervention: nudge sent
+
+  - type: textarea
+    id: phase_instructions
+    attributes:
+      label: Phase Instructions
+      description: What are the phase instructions the agent should be following?
+      placeholder: |
+        Phase 2 instructions:
+        - Investigate one vulnerability at a time
+        - Document findings in task update
+        - Spawn Phase 3 validation when complete
+        - Do NOT spawn duplicate investigation tasks
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs
+      description: Paste relevant logs (backend.log, monitor.log)
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I've checked the agent's task description
+        - label: I've reviewed Guardian's trajectory analysis
+        - label: I've verified phase instructions are clear
+        - label: I can reproduce this behavior

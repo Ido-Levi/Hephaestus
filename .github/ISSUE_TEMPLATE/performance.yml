@@ -1,0 +1,93 @@
+name: ⚡ Performance Issue
+description: Report slow performance, memory leaks, or resource problems
+labels: ["performance", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Report performance issues to help us optimize Hephaestus.
+
+  - type: dropdown
+    id: issue_type
+    attributes:
+      label: Performance Issue Type
+      options:
+        - Slow agent response/execution
+        - High memory usage
+        - Memory leak
+        - High CPU usage
+        - Slow database queries
+        - Slow Qdrant searches
+        - Frontend lag/slow rendering
+        - API endpoint timeouts
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Issue Description
+      description: What performance problem are you experiencing?
+      placeholder: |
+        After running workflow for 30 minutes with 10 agents, memory usage
+        grows to 8GB and agents become very slow to respond...
+    validations:
+      required: true
+
+  - type: textarea
+    id: metrics
+    attributes:
+      label: Performance Metrics
+      description: Any metrics you've observed?
+      placeholder: |
+        - Memory: Started at 500MB, grew to 8GB over 30 minutes
+        - CPU: Steady 80-90% usage
+        - Agent response time: Started 2-3s, now 30-60s
+        - Database size: 2GB
+        - Number of agents: 10 active
+        - Number of tasks: 150 total, 80 completed
+
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Workflow Details
+      description: What workflow are you running?
+      placeholder: |
+        - Workflow: Software development from PRD
+        - 3 phases: Requirements (1) → Implementation (2) → Testing (3)
+        - Running for: 45 minutes
+        - Tasks created: ~200
+        - Memories saved: ~500
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: System Resources
+      description: Your system specifications
+      placeholder: |
+        - OS: macOS 14.1
+        - RAM: 16GB
+        - CPU: M1 Pro
+        - Docker memory limit: 8GB
+        - Python version: 3.11.5
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs or Profiling
+      description: Any error logs or profiling data
+      render: shell
+      placeholder: |
+        [WARNING] Memory usage: 7.8GB
+        [WARNING] Slow query: SELECT * FROM tasks took 5.2s
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: This happens consistently, not just once
+        - label: I've checked system resources (RAM, CPU, disk)
+        - label: Performance degrades over time (not immediate)
+        - label: I've reviewed the logs for warnings

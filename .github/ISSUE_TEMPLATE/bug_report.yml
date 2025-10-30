@@ -1,0 +1,99 @@
+name: 🐛 Bug Report
+description: Report a bug or unexpected behavior in Hephaestus
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill out the sections below to help us understand and fix the issue.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: Clear and concise description of what the bug is
+      placeholder: "Agents get stuck after spawning Phase 2 tasks..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this bug?
+      placeholder: |
+        1. Start workflow with `python run_prd_workflow.py`
+        2. Phase 1 agent creates 3 Phase 2 tasks
+        3. All Phase 2 agents spawn but remain idle
+        4. No progress for 5+ minutes
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should have happened?
+      placeholder: "Phase 2 agents should start working on their tasks immediately"
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+      placeholder: "Agents spawn but show 'idle' status and never start working"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs
+      description: Paste relevant log output (from logs/backend.log or logs/monitor.log)
+      render: shell
+      placeholder: |
+        [2025-01-30 10:23:45] ERROR - Agent agent-abc123 failed to start
+        [2025-01-30 10:23:45] Traceback...
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Your system details
+      placeholder: |
+        - OS: macOS 14.1
+        - Python: 3.11.5
+        - Hephaestus version: latest from main
+        - LLM Provider: OpenRouter (Cerebras)
+        - Claude Code version: 1.2.3
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Which component is affected?
+      options:
+        - Agent spawning/lifecycle
+        - Guardian monitoring
+        - Task creation/management
+        - Ticket system
+        - Memory/RAG system
+        - Git worktrees
+        - Frontend UI
+        - MCP server
+        - Not sure
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission Checklist
+      options:
+        - label: I've checked the documentation
+        - label: I've searched existing issues
+        - label: I can reproduce this consistently
+        - label: I've included relevant logs

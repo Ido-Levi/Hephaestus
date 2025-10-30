@@ -1,0 +1,86 @@
+name: ✨ Feature Request
+description: Suggest a new feature or enhancement for Hephaestus
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! Help us understand your use case and what you'd like to see.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or Use Case
+      description: What problem are you trying to solve? What's your use case?
+      placeholder: |
+        I'm working on security testing workflows and need agents to automatically
+        prioritize high-risk vulnerabilities over low-risk ones...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: How would you like this to work?
+      placeholder: |
+        Add a priority system where:
+        - Agents can tag tasks with risk levels (critical, high, medium, low)
+        - Guardian prioritizes critical tasks in queue
+        - Kanban board shows risk indicators
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you considered any alternative solutions or workarounds?
+      placeholder: "Currently using manual task priority, but it's not dynamic enough..."
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation Ideas
+      description: (Optional) Any thoughts on how this could be implemented?
+      placeholder: |
+        - Add `risk_level` field to Task model
+        - Update Guardian's queue sorting logic
+        - Add risk indicators to frontend TaskCard component
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Which area does this affect?
+      options:
+        - Agent coordination
+        - Workflow phases
+        - Guardian/Conductor monitoring
+        - Task/Ticket system
+        - Memory/Knowledge sharing
+        - Git worktrees
+        - Frontend UI
+        - Configuration
+        - Documentation
+        - Multiple areas
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: How important is this to you?
+      options:
+        - Nice to have
+        - Would be helpful
+        - Important for my workflow
+        - Blocking my use case
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I'd be willing to contribute a PR for this feature
