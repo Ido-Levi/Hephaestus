@@ -238,101 +238,7 @@ Each task shows:
 
 Notice how tasks from different phases appear in the list — Phase 2 implementation tasks and Phase 3 validation tasks running in parallel. Some Phase 3 agents discovered critical issues and spawned new Phase 2 bug-fix tasks (see "Fix CRITICAL Analytics service integration issues").
 
-## Example 2: Security Testing That Adapts
-
-Let's look at a different domain: security testing. Same concept, different application.
-
-### The Setup
-
-**Phase 1: Reconnaissance**
-- Explore target application
-- Map attack surface
-- Identify potential vulnerabilities
-- Spawn Phase 2 exploitation tasks
-
-**Phase 2: Exploitation**
-- Attempt to exploit one vulnerability
-- Document proof-of-concept
-- Assess severity
-- Spawn Phase 3 validation
-
-**Phase 3: Validation**
-- Verify exploit works reliably
-- Document impact
-- Write remediation guidance
-
-### How It Unfolds
-
-You start with: "Phase 1: Perform reconnaissance on https://example.com"
-
-The Phase 1 agent explores the application and identifies **12 potential vulnerabilities**:
-- 3 SQL injection candidates
-- 2 XSS opportunities
-- 4 authentication bypass possibilities
-- 2 file upload vulnerabilities
-- 1 SSRF vector
-
-It spawns **12 Phase 2 exploitation tasks**. Now you have 12 agents attempting different attacks in parallel.
-
-### The Branching Cascade
-
-**Phase 2 Agent #3** is testing an authentication bypass. It succeeds.
-
-But here's what it discovers: once authenticated, it can see the admin panel. The admin panel has **additional vulnerabilities** that weren't visible before.
-
-It spawns **3 new Phase 1 reconnaissance tasks**:
-- "Investigate admin panel endpoints"
-- "Map privileged API routes"
-- "Analyze session management"
-
-Each of these will spawn their own Phase 2 exploitation attempts.
-
-Meanwhile, **Phase 2 Agent #7** is testing a file upload vulnerability. It successfully uploads a file, but realizes this could potentially lead to **remote code execution**.
-
-It spawns a **new Phase 2 investigation**: "Attempt RCE via uploaded file path traversal."
-
-The workflow is branching in real-time:
-
-```mermaid
-graph TB
-    P1[Phase 1: Reconnaissance<br/>Maps 12 vulnerabilities] --> P2_1[Phase 2: SQL Injection #1]
-    P1 --> P2_2[Phase 2: SQL Injection #2]
-    P1 --> P2_3[Phase 2: Auth Bypass<br/>SUCCEEDS]
-    P1 --> P2_7[Phase 2: File Upload<br/>FINDS NEW VECTOR]
-    P1 --> P2_rest[...8 more exploitation tasks]
-
-    P2_3 --> P3_3[Phase 3: Validate Bypass]
-    P2_3 -->|discovers admin panel| P1_admin[Phase 1: Admin Panel Recon<br/>NEW BRANCH]
-    P2_3 -->|discovers APIs| P1_api[Phase 1: API Mapping<br/>NEW BRANCH]
-    P2_3 -->|discovers session issues| P1_session[Phase 1: Session Analysis<br/>NEW BRANCH]
-
-    P1_admin --> P2_admin1[Phase 2: Admin Exploit #1]
-    P1_admin --> P2_admin2[Phase 2: Admin Exploit #2]
-    P1_api --> P2_api1[Phase 2: API Exploit]
-
-    P2_7 --> P3_7[Phase 3: Validate Upload]
-    P2_7 -->|potential RCE| P2_rce[Phase 2: RCE Attempt<br/>NEW BRANCH]
-    P2_rce --> P3_rce[Phase 3: Validate RCE]
-
-    style P2_3 fill:#fff3e0
-    style P2_7 fill:#fff3e0
-    style P1_admin fill:#e1f5fe
-    style P1_api fill:#e1f5fe
-    style P1_session fill:#e1f5fe
-    style P2_rce fill:#f3e5f5
-```
-
-What started as 12 parallel exploitation attempts has **grown into 20+ branches** because agents discovered new attack vectors during their work.
-
-### The Adaptive Advantage
-
-Traditional pentesting: recon → test vulnerabilities one by one → validate → report.
-
-With phases: the workflow **expands based on what's actually there**.
-- High-impact findings spawn deeper investigation
-- Dead ends are abandoned quickly
-- Successful exploits trigger follow-up testing
-- The attack tree builds itself based on what agents find
+## How Phases Enable Adaptive Workflows
 
 ## The Core Insight
 
@@ -354,7 +260,7 @@ Phase-based workflows say: "Here are the types of work you can do (analysis, bui
 
 Building software? Your validation agent finds an optimization → spawns investigation → new feature emerges
 
-Hunting bugs? Your exploitation agent finds a deeper vulnerability → spawns new reconnaissance → attack surface expands
+Analyzing systems? Your investigation agent finds a deeper issue → spawns new analysis → problem space expands
 
 Solving problems? Any agent can say "this needs different expertise" → spawns appropriate phase → workflow adapts
 

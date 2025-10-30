@@ -2145,97 +2145,97 @@ Add new section for ticket tracking tools with emphasis on hybrid search being t
 
 ## Example Workflow Usage
 
-### Scenario: Multi-Agent Bug Bounty Workflow
+### Scenario: Multi-Agent Software Development Workflow
 
-**Workflow:** Find and fix security vulnerabilities in a codebase
+**Workflow:** Build a REST API from requirements
 
 **Board Configuration:**
 ```python
 board_config = TicketBoardConfig(
-    name="Bug Bounty Board",
+    name="API Development Board",
     columns=[
-        ColumnConfig(id="found", name="Found", order=0, color="#ef4444"),
-        ColumnConfig(id="triaging", name="Triaging", order=1, color="#f59e0b"),
-        ColumnConfig(id="assigned", name="Assigned", order=2, color="#3b82f6"),
-        ColumnConfig(id="fixing", name="Fixing", order=3, wip_limit=3, color="#8b5cf6"),
+        ColumnConfig(id="backlog", name="Backlog", order=0, color="#gray"),
+        ColumnConfig(id="design", name="Design", order=1, color="#f59e0b"),
+        ColumnConfig(id="in_progress", name="In Progress", order=2, wip_limit=3, color="#3b82f6"),
+        ColumnConfig(id="review", name="Review", order=3, color="#8b5cf6"),
         ColumnConfig(id="testing", name="Testing", order=4, color="#10b981"),
-        ColumnConfig(id="fixed", name="Fixed", order=5, color="#6b7280")
+        ColumnConfig(id="done", name="Done", order=5, color="#6b7280")
     ],
     ticket_types=[
-        TicketTypeConfig(id="critical", name="Critical", icon="🚨", color="#dc2626"),
-        TicketTypeConfig(id="high", name="High", icon="⚠️", color="#f59e0b"),
-        TicketTypeConfig(id="medium", name="Medium", icon="ℹ️", color="#3b82f6"),
-        TicketTypeConfig(id="low", name="Low", icon="📝", color="#6b7280"),
+        TicketTypeConfig(id="feature", name="Feature", icon="✨", color="#3b82f6"),
+        TicketTypeConfig(id="bug", name="Bug", icon="🐛", color="#dc2626"),
+        TicketTypeConfig(id="task", name="Task", icon="📝", color="#6b7280"),
+        TicketTypeConfig(id="improvement", name="Improvement", icon="⚡", color="#f59e0b"),
     ]
 )
 ```
 
 **Workflow Execution:**
 
-1. **Scanning Agent** discovers vulnerabilities:
+1. **Planning Agent** identifies components:
 ```python
-# For each vulnerability found
+# For each component identified
 create_ticket(
-    title=f"SQL Injection in {file_path}:{line_number}",
+    title=f"Build {component_name} API endpoint",
     description=f"""
-    Found potential SQL injection vulnerability.
+    Implement {component_name} functionality.
 
-    **Location:** {file_path}:{line_number}
-    **CWE:** CWE-89
-    **Evidence:** {code_snippet}
-    **Risk:** High - User input directly concatenated in SQL query
+    **Requirements:**
+    - {requirement_1}
+    - {requirement_2}
+    **Acceptance Criteria:** {criteria}
     """,
-    ticket_type="high",
+    ticket_type="feature",
     priority="high",
-    initial_status="found",
-    tags=["sql-injection", "backend", f"file:{file_path}"]
+    initial_status="backlog",
+    tags=["api", "backend", f"component:{component_name}"]
 )
 ```
 
-2. **Triage Agent** reviews and prioritizes:
+2. **Design Agent** creates specifications:
 ```python
-# Search for similar issues
+# Search for related design tickets
 similar = search_tickets(
-    query="SQL injection authentication",
+    query="authentication API design",
     search_type="semantic"
 )
 
-# Update ticket with triage findings
+# Update ticket with design
 change_ticket_status(
     ticket_id="ticket-123",
-    new_status="triaging",
+    new_status="design",
     comment=f"""
-    Triaged this issue. Found {len(similar)} similar vulnerabilities.
-    Recommend fixing all together. CVSS Score: 8.5 (High)
+    Created API design specification. Found {len(similar)} related endpoints.
+    Recommend implementing with shared auth middleware.
     """
 )
 
 update_ticket(
     ticket_id="ticket-123",
     updates={
-        "priority": "critical",
+        "priority": "high",
         "story_points": 5
     }
 )
 ```
 
-3. **Fix Agent** is assigned and works on fix:
+3. **Implementation Agent** builds the feature:
 ```python
 # Self-assign ticket
 update_ticket(
     ticket_id="ticket-123",
-    updates={"assigned_agent_id": "agent-fix-1"}
+    updates={"assigned_agent_id": "agent-impl-1"}
 )
 
 change_ticket_status(
     ticket_id="ticket-123",
-    new_status="fixing",
-    comment="Starting work on parameterized query implementation"
+    new_status="in_progress",
+    comment="Starting implementation of /api/auth endpoint"
 )
 
-# Work on fix...
+# Implement feature...
 # Commit changes
-commit_sha = git_commit("Fix SQL injection in auth module TKT-123")
+commit_sha = git_commit("Implement auth API endpoint TKT-123")
 
 # Link commit to ticket
 link_commit(
@@ -2246,11 +2246,12 @@ link_commit(
 add_comment(
     ticket_id="ticket-123",
     comment_text="""
-    Implemented parameterized queries using prepared statements.
+    Implemented authentication endpoint.
     Changes made:
-    - Refactored auth.py to use SQLAlchemy ORM
+    - Added /api/auth POST endpoint
+    - Implemented JWT token generation
     - Added input validation
-    - Updated tests
+    - Updated API docs
 
     Ready for review.
     """
@@ -2258,49 +2259,49 @@ add_comment(
 
 change_ticket_status(
     ticket_id="ticket-123",
-    new_status="testing",
-    comment="Fix implemented, moving to testing"
+    new_status="review",
+    comment="Implementation complete, moving to review"
 )
 ```
 
-4. **Test Agent** validates fix:
+4. **Testing Agent** validates implementation:
 ```python
-# Search for ticket to test
+# Search for tickets to test
 tickets = get_tickets(
     workflow_id=workflow_id,
     status="testing",
     assigned_agent_id=None  # Unassigned
 )
 
-# Test the fix
-test_results = run_security_tests(ticket_id="ticket-123")
+# Run tests
+test_results = run_integration_tests(ticket_id="ticket-123")
 
 if test_results.passed:
     change_ticket_status(
         ticket_id="ticket-123",
-        new_status="fixed",
+        new_status="done",
         comment=f"""
-        All security tests passed:
-        - SQL injection test: PASS
-        - Authentication bypass test: PASS
-        - Input validation test: PASS
+        All tests passed:
+        - Integration tests: PASS
+        - Unit tests: PASS
+        - API validation: PASS
 
-        Fix verified and ready for deployment.
+        Feature verified and ready for deployment.
         """
     )
 else:
     change_ticket_status(
         ticket_id="ticket-123",
-        new_status="assigned",
-        comment=f"Tests failed: {test_results.failures}. Reassigning to fix agent."
+        new_status="in_progress",
+        comment=f"Tests failed: {test_results.failures}. Reassigning to implementation agent."
     )
 ```
 
 5. **Humans** monitor progress via Kanban board:
 - See real-time updates as tickets move through columns
 - Click on tickets to see detailed history
-- Filter by critical priority to see urgent issues
-- Export report of all fixed vulnerabilities
+- Filter by feature type to see new functionality
+- Export report of all completed features
 
 ---
 

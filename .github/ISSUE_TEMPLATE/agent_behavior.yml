@@ -42,8 +42,8 @@ body:
       label: Workflow Context
       description: What workflow/phases are you running?
       placeholder: |
-        - Workflow: Bug bounty security testing
-        - Phases: Recon (1) → Investigation (2) → Validation (3)
+        - Workflow: Software development from PRD
+        - Phases: Planning (1) → Implementation (2) → Validation (3)
         - 5 agents active across all phases
     validations:
       required: true
@@ -75,10 +75,10 @@ body:
       description: What are the phase instructions the agent should be following?
       placeholder: |
         Phase 2 instructions:
-        - Investigate one vulnerability at a time
-        - Document findings in task update
+        - Implement one component at a time
+        - Document progress in task update
         - Spawn Phase 3 validation when complete
-        - Do NOT spawn duplicate investigation tasks
+        - Do NOT spawn duplicate implementation tasks
 
   - type: textarea
     id: logs

@@ -426,7 +426,6 @@ The `run_prd_workflow.py` script shows how to:
 
 Other example workflows:
 - `example_workflows/prd_to_software/` - Full software development pipeline
-- `example_workflows/hackerone_bug_bounty/` - Security testing workflow
 - `example_workflows/crackme_solving/` - Reverse engineering workflow
 
 See `run_prd_workflow.py` for a complete example of workflow configuration and execution.

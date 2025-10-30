@@ -431,35 +431,6 @@ The workflow **builds itself** based on what agents discover.
 
 ## Other Examples
 
-### Bug Bounty Workflow
-
-```python
-from example_workflows.hackerone_bug_bounty.phases import PHASES, WORKFLOW_CONFIG
-from src.sdk import HephaestusSDK
-
-sdk = HephaestusSDK(
-    phases=PHASES,
-    workflow_config=WORKFLOW_CONFIG,
-    working_directory="/path/to/target",
-    main_repo_path="/path/to/target",
-)
-
-sdk.start()
-
-sdk.create_task(
-    description="Phase 1: Perform reconnaissance on https://example.com",
-    phase_id=1,
-    priority="high",
-    agent_id="main-session-agent"
-)
-```
-
-**Workflow:**
-1. Phase 1: Reconnaissance (map attack surface)
-2. Phase 2: Exploitation (attempt vulnerabilities)
-3. Phase 3: Validation (verify exploits)
-4. Phase 4: Reporting (document findings)
-
 ### Simple 2-Phase Workflow
 
 ```python
@@ -532,5 +503,4 @@ python run_prd_workflow.py --tui
 
 **Explore Examples:**
 - `example_workflows/prd_to_software/` - Complete software builder
-- `example_workflows/hackerone_bug_bounty/` - Security testing
 - `run_prd_workflow.py` - The script we just examined

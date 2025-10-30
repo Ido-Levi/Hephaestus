@@ -186,22 +186,22 @@ Phases communicate through task creation. Validation finds issues → spawns fix
 
 In analysis or reconnaissance phases, you often discover multiple things worth exploring in parallel.
 
-**Example: Security Testing**
+**Example: Parallel Component Building**
 
 ```yaml
-# Phase 1: Reconnaissance
+# Phase 1: Requirements Analysis
 additional_notes: |
-  After mapping the attack surface, create Phase 2 exploitation tasks
-  for EACH potential vulnerability you find:
+  After analyzing the requirements, create Phase 2 implementation tasks
+  for EACH component you identify:
 
-  For each finding:
+  For each component:
   create_task({
-      "description": "Phase 2: Exploit [Vulnerability Type] at [Location]",
+      "description": "Phase 2: Build [Component Name]",
       "phase_id": 2,
       "priority": "high"
   })
 
-  If you find 10 potential vulnerabilities, spawn 10 Phase 2 tasks.
+  If you identify 10 components, spawn 10 Phase 2 tasks.
   They'll run in parallel.
 ```
 
@@ -428,14 +428,14 @@ This is interconnected workflow design.
 
 ## Common Interconnection Patterns
 
-### Reconnaissance → Exploitation → Validation → Documentation
-**Used in:** Security testing, bug bounty hunting
+### Analysis → Implementation → Validation → Documentation
+**Used in:** Software development, system building
 
 **Interconnection:**
-- Recon spawns multiple exploitation branches
-- Successful exploitation spawns validation
+- Analysis spawns multiple implementation branches
+- Successful implementation spawns validation
 - Validation spawns documentation
-- Exploitation can spawn new recon if new attack surface found
+- Implementation can spawn new analysis if new requirements found
 
 ### Analysis → Design → Implementation → Testing → Deployment
 **Used in:** Software development

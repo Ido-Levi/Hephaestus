@@ -13,8 +13,8 @@ body:
       label: Problem or Use Case
       description: What problem are you trying to solve? What's your use case?
       placeholder: |
-        I'm working on security testing workflows and need agents to automatically
-        prioritize high-risk vulnerabilities over low-risk ones...
+        I'm working on software development workflows and need agents to automatically
+        prioritize critical features over nice-to-have ones...
     validations:
       required: true
 

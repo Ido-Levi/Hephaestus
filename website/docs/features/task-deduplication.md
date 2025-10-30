@@ -24,13 +24,13 @@ If the similarity exceeds the threshold (default: 0.92), the new task is marked 
 
 Hephaestus is deliberately unstructured. Agents aren't following a rigid script — they're discovering what needs to be done as they work. This creates immense flexibility but introduces a coordination problem.
 
-Consider a bug bounty workflow:
+Consider a multi-agent workflow:
 
-**Phase 2 Agent #3** is exploiting an authentication bypass. It discovers the admin panel and thinks: "Someone should investigate these admin API endpoints."
+**Phase 2 Agent #3** is implementing an authentication feature. It discovers the admin module and thinks: "Someone should investigate how the admin API endpoints work."
 
-**Phase 2 Agent #7** is testing file uploads. It successfully uploads a file and thinks: "Someone should check if this gives access to admin functionality."
+**Phase 2 Agent #7** is implementing file management. It successfully creates the upload feature and thinks: "Someone should check if this integrates properly with admin functionality."
 
-Both agents want to investigate the admin panel. Both create similar tasks.
+Both agents want to investigate the admin module. Both create similar tasks.
 
 Without semantic deduplication, you'd have two agents doing the same investigation. Cosine similarity catches this: the tasks are semantically similar even though the wording differs.
 

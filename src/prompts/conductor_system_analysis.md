@@ -82,7 +82,7 @@ Create a 3-5 sentence progress report that describes what the agents are actuall
 Good examples:
 - "Building a JWT authentication system from scratch. The main agent has completed the token generation and validation logic using Node.js built-in crypto module (respecting no-external-libs constraint) and is currently implementing refresh token rotation. A second agent is writing integration tests for the login flow, token refresh, and edge cases. A third agent is documenting the /auth endpoints with example requests. Core functionality is done, now in testing and documentation phase."
 
-- "Conducting reconnaissance and vulnerability testing on the example.com bug bounty target. Three agents are actively enumerating different attack surfaces: one is mapping S3 buckets and discovered several exposed config files in prod-backups-2023, one is fuzzing API endpoints and found a promising SQL injection in /api/v2/users/search, and one is testing JWT token validation and identified that signatures aren't being properly verified. Two additional agents are documenting these findings and beginning to chain discoveries into full exploit paths. Making solid progress through deep investigation with multiple high-severity findings."
+- "Analyzing and refactoring the legacy API codebase. Three agents are working across different subsystems: one is mapping the authentication flow and has documented the current token generation logic, one is identifying performance bottlenecks in the /api/v2/search endpoint and found inefficient database queries, and one is reviewing error handling patterns and identified that many endpoints lack proper validation. Two additional agents are documenting these findings and creating improvement tickets with specific refactoring recommendations. Making solid progress through systematic code review with multiple improvement opportunities identified."
 
 - "Migrating the user database from PostgreSQL to MongoDB. Two agents working in parallel: one writing migration scripts to transform data while preserving relationships (currently on the orders table with complex foreign keys), and another updating the API layer to use Mongoose instead of Sequelize (about 60% done with CRUD operations converted). A third agent is creating rollback procedures and testing migration on staging data. Data transformation is complete, focused now on API conversion and safety procedures."
 
@@ -171,7 +171,7 @@ You MUST return valid JSON with this EXACT structure:
 }}
 ```
 
-### Example 2: Bug Bounty Reconnaissance
+### Example 2: Code Review and Refactoring
 ```json
 {{
     "coherence_score": 0.75,
@@ -179,7 +179,7 @@ You MUST return valid JSON with this EXACT structure:
     "alignment_issues": [],
     "termination_recommendations": [],
     "coordination_needs": [],
-    "system_summary": "Conducting comprehensive security testing on acme-corp.com bug bounty target. Four agents are working across different attack surfaces: one is enumerating S3 buckets and has discovered exposed configuration files in prod-backups-2023 bucket, one is fuzzing API endpoints and found a promising SQL injection vulnerability in the /api/v2/search endpoint, one is testing authentication mechanisms and identified weak JWT signature validation, and one is documenting all findings in structured markdown reports. Agents are in the deep investigation phase with several medium-to-high severity findings already documented. Next phase will be chaining these vulnerabilities into full exploit paths."
+    "system_summary": "Conducting comprehensive code review and refactoring of the legacy API system. Four agents are working across different subsystems: one is analyzing database query patterns and has discovered several N+1 query issues in the user module, one is reviewing API endpoint implementations and found inconsistent error handling in the /api/v2/search endpoint, one is examining authentication mechanisms and identified opportunities to consolidate token validation logic, and one is documenting all findings with refactoring recommendations in structured markdown reports. Agents are in the deep analysis phase with several improvement opportunities already documented. Next phase will be implementing the prioritized refactoring tasks."
 }}
 ```
 

@@ -345,7 +345,6 @@ sdk = HephaestusSDK(phases=PRD_PHASES)
 
 **Available workflows:**
 - `example_workflows/prd_to_software/phases.py` - PRD to working software
-- `example_workflows/hackerone_bug_bounty/phases.py` - Security testing
 - More in `example_workflows/` directory
 
 ## Programmatic Phase Generation
@@ -499,19 +498,7 @@ phases = [
 ]
 ```
 
-### Pattern 2: Reconnaissance → Exploitation → Reporting
-
-For security testing:
-
-```python
-phases = [
-    Phase(id=1, name="recon", description="Map the attack surface"),
-    Phase(id=2, name="exploit", description="Attempt exploits"),
-    Phase(id=3, name="report", description="Document findings")
-]
-```
-
-### Pattern 3: Analyze → Design → Build → Test → Document
+### Pattern 2: Analyze → Design → Build → Test → Document
 
 For software development:
 
@@ -558,7 +545,6 @@ Break it into multiple phases instead.
 **See Real Examples**
 - [SDK Examples](examples.md) - Breakdown of `run_prd_workflow.py`
 - `example_workflows/prd_to_software/phases.py` - Production workflow phases
-- `example_workflows/hackerone_bug_bounty/phases.py` - Security workflow phases
 
 **Understand the System**
 - [Phases System Guide](../guides/phases-system.md) - How workflows build themselves

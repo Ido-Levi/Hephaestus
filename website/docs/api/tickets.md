@@ -567,7 +567,7 @@ Retrieves the Kanban board configuration for a workflow.
   "board_config": {
     "id": "board-123",
     "workflow_id": "workflow-123",
-    "name": "Bug Bounty Board",
+    "name": "Project Workflow Board",
     "columns": [
       {"id": "backlog", "name": "Backlog", "order": 0, "color": "#gray"},
       {"id": "in_progress", "name": "In Progress", "order": 1, "color": "#blue"},

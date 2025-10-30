@@ -58,58 +58,7 @@ This creates a **branching tree of tasks** that grows based on actual discoverie
 
 Let me show you what this looks like in practice:
 
-### Example 1: Security Testing - Finding What You Didn't Predict
-
-You're pentesting a web application. You define three phase types:
-- **Phase 1 (Reconnaissance)**: Map attack surface, enumerate endpoints
-- **Phase 2 (Investigation)**: Test vulnerabilities, analyze findings
-- **Phase 3 (Validation)**: Verify exploitability, assess impact
-
-That's it. No predefined attack chains. No "if SQL injection found, then do X" logic. Just guidelines for how to recon, investigate, and validate.
-
-**Phase 1 agent** maps the application and spawns **3 Phase 2 investigation tasks** for interesting endpoints it found.
-
-**Phase 2 agent** investigating the `/api/users` endpoint discovers an IDOR vulnerability. It saves this to memory and spawns a **Phase 3 validation task**.
-
-**Phase 3 agent** validates the IDOR works. While testing, it notices the exposed user data includes internal API keys. That's interesting - what can those keys access?
-
-The agent **spawns a Phase 1 recon task**: "Enumerate internal API endpoints using discovered keys from IDOR vulnerability."
-
-A new **Phase 1 agent** picks this up, searches memories for "IDOR" and "API keys", finds the relevant context, and discovers several internal endpoints. It spawns **Phase 2 investigation tasks** for each.
-
-One of those **Phase 2 agents** finds an internal `/admin/export` endpoint with weak authorization. It saves this discovery to memory.
-
-Another **Phase 2 agent**, investigating a different endpoint, searches memories for "admin" discoveries and finds the export endpoint. It chains these together: IDOR → API keys → admin access → data export. It spawns a **Phase 3 validation task** to verify the full chain.
-
-**The complex vulnerability discovered itself** - agents chained multiple smaller findings by sharing discoveries through memory and spawning new tasks as they explored.
-
-```mermaid
-graph TB
-    P1[Phase 1: Map Application<br/>Finds 3 interesting endpoints] --> P2A[Phase 2: Test /api/users]
-    P1 --> P2B[Phase 2: Test /api/auth]
-    P1 --> P2C[Phase 2: Test /api/docs]
-
-    P2A -->|IDOR found| P3A[Phase 3: Validate IDOR]
-    P3A -->|discovers API keys| P1B[Phase 1: Recon with Keys<br/>NEW BRANCH]
-
-    P1B -->|finds internal APIs| P2D[Phase 2: Test /admin/export]
-    P1B --> P2E[Phase 2: Test /internal/logs]
-
-    P2D -->|saves to memory| MEM[(Memory: admin export found)]
-    P2E -->|searches memory| MEM
-    P2E -->|chains findings| P3B[Phase 3: Validate Full Chain<br/>IDOR + Keys + Admin = Critical]
-
-    style P3A fill:#fff3e0
-    style P1B fill:#e1f5fe
-    style P2E fill:#ffebee
-    style P3B fill:#c8e6c9
-```
-
-You never told agents to chain IDOR with admin access. You never wrote "if API keys found, enumerate internal endpoints."
-
-You just defined **how to do reconnaissance, investigation, and validation** - and agents figured out the complex attack chain by discovering, sharing, and building on each other's findings.
-
-### Example 2: Building from a PRD
+### Example: Building from a PRD
 
 I give Hephaestus a product requirements document: "Build a web application with authentication, REST API, and a React frontend."
 
@@ -198,22 +147,7 @@ graph TB
 
 **Hephaestus approach:** Define work types → agents discover → workflow adapts in real-time
 
-Here's another example that shows the power: **Security testing**
-
-A Phase 1 reconnaissance agent maps a web application's attack surface. It finds 12 potential vulnerabilities and spawns **12 Phase 2 exploitation tasks** — one per vulnerability.
-
-Twelve agents start testing exploits in parallel.
-
-**Phase 2 Agent #5** successfully bypasses authentication. But now it can see the admin panel that wasn't visible before. The admin panel has its own vulnerabilities.
-
-What does it do? **Spawns 3 new Phase 1 reconnaissance tasks:**
-- "Investigate admin panel endpoints"
-- "Map privileged API routes"
-- "Analyze session management for privilege escalation"
-
-Each of these spawns their own exploitation attempts. Each successful exploit might reveal more attack surface.
-
-**The attack tree builds itself** based on what agents actually find, not what we predicted upfront.
+The workflow adapts in real-time based on what agents actually discover, not what we predicted upfront.
 
 ## The Semi-Structured Sweet Spot
 
