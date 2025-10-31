@@ -397,9 +397,52 @@ Open your browser to `http://localhost:3000`. You'll see:
 
 ## Using Example Workflows
 
-Instead of building your own workflow from scratch, you can use pre-built workflows in `example_workflows/`:
+### Quick Start: Personal Task Manager
 
-**PRD to Software Builder** (complete working example):
+Instead of building your own workflow from scratch, use our pre-built **Personal Task Manager** example:
+
+**All-in-One Runner** (simplest approach):
+```bash
+# Terminal 1: Start Qdrant (if not already running)
+docker run -d -p 6333:6333 qdrant/qdrant
+
+# Terminal 2: Run the complete example
+python run_example.py
+```
+
+The `run_example.py` script will:
+1. **Check and setup sub-agents** in `~/.claude/agents/`
+2. **Prompt for project path** (creates directory automatically)
+3. **Copy PRD.md and .gitignore** to your project
+4. **Initialize git repository** with initial commit
+5. **Update config** with your project path
+6. **Start Hephaestus** with the PRD to Software Builder workflow
+7. **Create initial task** to analyze the Personal Task Manager PRD
+
+**What you get:**
+- A complete Personal Task Manager app with:
+  - FastAPI backend + React frontend
+  - SQLite database
+  - Task CRUD operations (create, view, edit, delete)
+  - Proper project structure with separate `frontend/` and `backend/` directories
+
+**The workflow will:**
+1. Parse the PRD and identify components
+2. Create Kanban tickets for each component
+3. Design each component in parallel (Phase 2)
+4. Implement each component (Phase 3)
+5. Test each component (Phase 4)
+6. Document the system (Phase 5)
+7. Submit final result when complete
+
+**Track progress at:**
+- Kanban Board: http://localhost:8001/tickets
+- Frontend UI: http://localhost:3000/
+
+### Advanced: Build Your Own Workflow
+
+For custom workflows, use `example_workflows/prd_to_software/`:
+
 ```bash
 # Terminal 1: Start Qdrant
 docker run -d -p 6333:6333 qdrant/qdrant
@@ -412,7 +455,7 @@ python run_prd_workflow.py
 ```
 
 **Note**: Make sure you have:
-1. Set up your working directory path in `hephaestus_config.yaml` (see Working Directory Setup above)
+1. Set up your working directory path in `hephaustus_config.yaml` (see Working Directory Setup above)
 2. Created a `PRD.md` file in your project directory
 3. Initialized the directory as a git repository (`git init`)
 
@@ -425,7 +468,6 @@ The `run_prd_workflow.py` script shows how to:
 - Handle workflow lifecycle
 
 Other example workflows:
-- `example_workflows/prd_to_software/` - Full software development pipeline
 - `example_workflows/crackme_solving/` - Reverse engineering workflow
 
 See `run_prd_workflow.py` for a complete example of workflow configuration and execution.

@@ -120,6 +120,16 @@ Non-Functional Requirements (how it must PERFORM):
 - Availability/reliability targets
 - Technology constraints or preferences
 
+**🚨 CRITICAL: RESPECT PRD TECH STACK CHOICES!**
+The PRD document specifies EXACT technology choices. You MUST follow them exactly:
+- If PRD says "SQLite" → Use SQLite, NOT SQLAlchemy or PostgreSQL
+- If PRD says "React" → Use React, NOT Vue or Angular
+- If PRD says "FastAPI" → Use FastAPI, NOT Flask or Django
+- If PRD says "Basic CSS" → Use Basic CSS, NOT Tailwind or Styled Components
+
+**NEVER substitute technologies unless the PRD explicitly allows alternatives!**
+**The tech stack in the PRD is NOT optional - it's a requirement!**
+
 Success Criteria (how to know it's DONE):
 - Acceptance criteria for each feature
 - Test scenarios that must pass
@@ -158,6 +168,14 @@ For Microservices:
 - Data storage
 - API gateway
 - Monitoring/logging
+
+**Integration Tasks (CRITICAL):**
+Think about what integration work is needed to connect components together. Integration tasks should run at the end after individual components are complete. Consider:
+- Frontend-backend API integration
+- Database integration with services
+- Authentication flows across components
+- End-to-end workflows
+- Component wiring and orchestration
 
 Document each component with:
 - Purpose: What does it do?
@@ -470,6 +488,10 @@ List your UI components:
 **These depend on all components being complete.**
 
 - [ ] End-to-end workflows
+- [ ] Frontend-backend API integration
+- [ ] Database integration with services
+- [ ] Authentication flows across components
+- [ ] Component wiring and orchestration
 - [ ] External service integrations
 - [ ] Final polish
 ```
@@ -966,9 +988,14 @@ Go back through ALL tickets you just created and verify:
 - [ ] User Registration: blocked_by_ticket_ids = [api_id, auth_id, frontend_id] ✅
 - [ ] Dashboard: blocked_by_ticket_ids = [api_id, auth_id, frontend_id] ✅
 
+### Integration Tickets Created (if needed)
+- [ ] Frontend-Backend Integration: blocked_by_ticket_ids = [api_id, frontend_id] ✅
+- [ ] End-to-End Workflows: blocked_by_ticket_ids = [all component IDs] ✅
+
 ### Verification Checks
 - ✅ EVERY foundation ticket has at least one infrastructure ticket blocking it
 - ✅ EVERY feature ticket has at least one foundation ticket blocking it
+- ✅ EVERY integration ticket is blocked by ALL components it integrates
 - ✅ NO ticket can start before its blockers are resolved
 - ✅ Infrastructure tickets form the base (most have no blockers or only other infrastructure)
 - ✅ The dependency chain makes logical sense (can't build auth without database)
