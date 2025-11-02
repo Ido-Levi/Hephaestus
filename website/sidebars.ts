@@ -21,6 +21,7 @@ const sidebars: SidebarsConfig = {
       collapsed: false,
       items: [
         'getting-started/quick-start',
+        'getting-started/bootstrap-new-project',
       ],
     },
     {
