@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/ido-levi-hephaestus-badge.png)](https://mseep.ai/app/ido-levi-hephaestus)
+
 # 🔥 Hephaestus: A Semi-Structured Agentic Framework
 
 <div align="center">
