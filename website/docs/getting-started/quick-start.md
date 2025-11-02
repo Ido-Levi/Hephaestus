@@ -11,7 +11,7 @@ A simple 3-phase bug fixing workflow:
 
 ## Prerequisites
 
-- **Claude Code**, **OpenCode**, or **Codex** installed (CLI AI tool that agents run in)
+- **Claude Code**, **OpenCode**, **Droid**, or **Codex** installed (CLI AI tool that agents run in)
 - **tmux** installed (terminal multiplexer for agent isolation)
 - **Git** (for worktree isolation - your project directory must be a git repo)
 - **Python 3.10+**

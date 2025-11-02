@@ -1,7 +1,7 @@
 """Interfaces for Hephaestus components."""
 
 from .llm_interface import LLMProviderInterface, OpenAIProvider, AnthropicProvider, LLM_PROVIDERS, get_llm_provider
-from .cli_interface import CLIAgentInterface, ClaudeCodeAgent, OpenCodeAgent, CodexAgent, CLI_AGENTS, get_cli_agent
+from .cli_interface import CLIAgentInterface, ClaudeCodeAgent, OpenCodeAgent, DroidAgent, CodexAgent, CLI_AGENTS, get_cli_agent
 
 __all__ = [
     "LLMProviderInterface",
@@ -12,6 +12,7 @@ __all__ = [
     "CLIAgentInterface",
     "ClaudeCodeAgent",
     "OpenCodeAgent",
+    "DroidAgent",
     "CodexAgent",
     "CLI_AGENTS",
     "get_cli_agent",

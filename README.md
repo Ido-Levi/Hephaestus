@@ -192,7 +192,7 @@ And **flexibility where you need it**:
 - **Git** - Your project must be a git repository
 - **Docker** - For running Qdrant vector store
 - **Node.js & npm** - For the frontend UI
-- **Claude Code** - AI coding assistant that agents run inside
+- **Claude Code**, **OpenCode**, **Droid**, or **Codex** - CLI AI tool that agents run inside
 - **API Keys**: OpenAI, OpenRouter, or Anthropic
 
 ### Validate Your Setup (macOS)

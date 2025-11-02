@@ -271,6 +271,77 @@ class OpenCodeAgent(CLIAgentInterface):
         }
 
 
+class DroidAgent(CLIAgentInterface):
+    """Implementation for Droid CLI.
+
+    Droid doesn't support system prompts or command-line flags.
+    We launch it with just 'droid', wait for initialization, then send the prompt
+    in batches similar to Claude Code to avoid tmux buffer issues.
+    """
+
+    def get_launch_command(self, system_prompt: str, **kwargs) -> str:
+        """Generate launch command for Droid.
+
+        Droid doesn't accept any flags - just launch 'droid'.
+        The prompt will be sent in batches after initialization.
+        """
+        return "droid"
+
+    def get_health_check_pattern(self) -> str:
+        """Return health check pattern for Droid.
+
+        Droid uses a prompt indicator in its TUI.
+        """
+        return r"(›|>|droid>)"
+
+    def format_message(self, message: str) -> str:
+        """Format message for Droid.
+
+        Droid accepts plain text messages in its TUI.
+        """
+        return message
+
+    def get_stuck_patterns(self) -> List[str]:
+        """Return stuck patterns for Droid."""
+        return [
+            r"rate limit exceeded",
+            r"rate limit",
+            r"API error",
+            r"connection timeout",
+            r"Error:.*API",
+            r"Failed to connect",
+            r"Maximum retries exceeded",
+            r"authentication failed",
+            r"invalid API key",
+        ]
+
+    def parse_output(self, output: str) -> Dict[str, Any]:
+        """Parse Droid output."""
+        lines = output.strip().split('\n')
+        last_message = ""
+        is_waiting = False
+
+        # Look for the last response before a prompt indicator
+        for i in range(len(lines) - 1, -1, -1):
+            line = lines[i]
+            if "›" in line or ">" in line or "droid>" in line:
+                is_waiting = True
+                # Get all lines after the previous prompt as the response
+                message_lines = []
+                for j in range(i - 1, -1, -1):
+                    if "›" in lines[j] or ">" in lines[j] or "droid>" in lines[j]:
+                        break
+                    message_lines.insert(0, lines[j])
+                last_message = "\n".join(message_lines).strip()
+                break
+
+        return {
+            "last_message": last_message,
+            "is_waiting": is_waiting,
+            "total_lines": len(lines),
+        }
+
+
 class CodexAgent(CLIAgentInterface):
     """Implementation for Codex CLI."""
 
@@ -380,6 +451,7 @@ class SwarmCodeAgent(CLIAgentInterface):
 CLI_AGENTS = {
     "claude": ClaudeCodeAgent,
     "opencode": OpenCodeAgent,
+    "droid": DroidAgent,
     "codex": CodexAgent,
     "swarm": SwarmCodeAgent,
 }

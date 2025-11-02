@@ -634,8 +634,11 @@ REMEMBER:
         is_opencode = cli_type == "opencode"
 
         # Check if this is a Claude agent (needs chunking)
-        from src.interfaces.cli_interface import ClaudeCodeAgent
+        from src.interfaces.cli_interface import ClaudeCodeAgent, DroidAgent
         is_claude = isinstance(cli_agent, ClaudeCodeAgent)
+
+        # Check if this is a Droid agent (needs chunking like Claude)
+        is_droid = isinstance(cli_agent, DroidAgent)
 
         # If verification is disabled, just send once and return
         if not verify_delivery:
@@ -645,14 +648,15 @@ REMEMBER:
                 await asyncio.sleep(5)
                 pane.send_keys('', enter=True)  # Send Enter to submit the prompt
                 logger.info(f"OpenCode: Enter sent to agent {agent_id}")
-            elif is_claude:
-                # Claude: Send in chunks to avoid tmux buffer issues with large prompts
-                logger.info(f"Sending initial prompt to agent {agent_id} (verification disabled)")
+            elif is_claude or is_droid:
+                # Claude/Droid: Send in chunks to avoid tmux buffer issues with large prompts
+                agent_name = "Claude" if is_claude else "Droid"
+                logger.info(f"Sending initial prompt to {agent_name} agent {agent_id} (verification disabled)")
                 formatted_message = cli_agent.format_message(initial_message)
 
                 chunk_size = 2500  # characters per chunk
                 num_chunks = (len(formatted_message) + chunk_size - 1) // chunk_size
-                logger.info(f"Claude agent: Sending prompt in {num_chunks} chunks ({len(formatted_message)} total chars)")
+                logger.info(f"{agent_name} agent: Sending prompt in {num_chunks} chunks ({len(formatted_message)} total chars)")
 
                 for i in range(0, len(formatted_message), chunk_size):
                     chunk = formatted_message[i:i+chunk_size]
@@ -663,7 +667,7 @@ REMEMBER:
                 logger.info(f"All chunks sent, submitting message with Enter")
                 await asyncio.sleep(0.5)  # Brief pause before Enter
                 pane.send_keys('', enter=True)  # This sends just the Enter key
-                logger.info(f"Initial prompt sent to agent {agent_id}")
+                logger.info(f"Initial prompt sent to {agent_name} agent {agent_id}")
             else:
                 # Other agents: Send entire prompt in one go
                 logger.info(f"Sending initial prompt to agent {agent_id} (verification disabled)")
@@ -683,12 +687,13 @@ REMEMBER:
                 logger.info(f"OpenCode agent: Prompt loaded via -p flag, waiting 5 seconds then sending Enter")
                 await asyncio.sleep(5)
                 pane.send_keys('', enter=True)  # Send Enter to submit the prompt
-            elif is_claude:
-                # Claude: Send in chunks to avoid tmux buffer issues with large prompts
+            elif is_claude or is_droid:
+                # Claude/Droid: Send in chunks to avoid tmux buffer issues with large prompts
+                agent_name = "Claude" if is_claude else "Droid"
                 formatted_message = cli_agent.format_message(initial_message)
                 chunk_size = 2000  # characters per chunk
                 num_chunks = (len(formatted_message) + chunk_size - 1) // chunk_size
-                logger.info(f"Claude agent: Sending prompt in {num_chunks} chunks ({len(formatted_message)} total chars)")
+                logger.info(f"{agent_name} agent: Sending prompt in {num_chunks} chunks ({len(formatted_message)} total chars)")
 
                 for i in range(0, len(formatted_message), chunk_size):
                     chunk = formatted_message[i:i+chunk_size]

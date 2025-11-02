@@ -223,7 +223,7 @@ sdk = HephaestusSDK(
     project_root="/path/to/project",
 
     # Agent CLI Tool (optional - overrides config file)
-    default_cli_tool="claude",  # Options: "claude", "opencode", "codex"
+    default_cli_tool="claude",  # Options: "claude", "opencode", "droid", "codex"
 
     # Git Configuration (REQUIRED for worktree isolation)
     main_repo_path="/path/to/project",
