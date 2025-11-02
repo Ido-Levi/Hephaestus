@@ -20,12 +20,12 @@ Create a new PR branch from upstream/main with clean code for submission to Ido'
    - Cherry-pick the specified commits
 
 4. **Clean the branch for PR**
-   - Replace any `/Users/mike/*` paths with `./your_project` in `hephaestus_config.yaml`
-   - Delete `Mike/docs/` directory if it exists
+   - Delete entire `Mike/` directory (personal workspace)
    - Delete `docs/LOCAL_SETUP.md` if it exists
-   - Verify all docs are in `website/docs/` (not `Mike/docs/`)
+   - Replace any `/Users/mike/*` paths with `./your_project` in `hephaestus_config.yaml`
+   - Verify all docs are in `website/docs/` (not in Mike/ or docs/)
    - Check for typos like "Configurationr" and fix them
-   - Ensure no personal database paths or API keys
+   - Ensure no personal database paths, API keys, or *.local.yaml files
 
 5. **Show the result**
    - Run `git status`
