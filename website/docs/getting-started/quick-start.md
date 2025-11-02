@@ -19,6 +19,70 @@ A simple 3-phase bug fixing workflow:
 - **Docker** (for running Qdrant vector store)
 - **API Keys**: OpenAI, OpenRouter (or Anthropic - see LLM Configuration below)
 
+## Validate Your Setup (macOS)
+
+Before proceeding with configuration, we recommend validating that everything is installed correctly:
+
+```bash
+python check_setup_macos.py
+```
+
+**What this script checks:**
+- ✅ **CLI Tools** - tmux, git, docker, node, npm, Claude Code, OpenCode, Python 3.10+
+- ✅ **API Keys** - .env file and required keys (OPENAI_API_KEY, OPENROUTER_API_KEY, etc.)
+- ✅ **MCP Servers** - Claude MCP accessible, Hephaestus and Qdrant MCP servers configured
+- ✅ **Configuration** - hephaestus_config.yaml exists and has required fields
+- ✅ **Working Directory** - Project directory exists, is git repo, has commits, has PRD.md
+- ✅ **Services** - Docker daemon running, Qdrant accessible on port 6333
+- ✅ **Dependencies** - Python packages and frontend node_modules installed
+
+**Example output:**
+```
+🔍 Hephaestus Setup Validation
+
+Checking CLI Tools...
+Checking API Keys...
+Checking MCP Servers...
+Checking Configuration...
+Checking Working Directory...
+Checking Services...
+Checking Dependencies...
+
+============================================================
+SETUP VALIDATION SUMMARY
+============================================================
+
+Cli Tools:
+  ✓ tmux
+  ✓ git
+  ✓ docker
+  ✓ node
+  ✓ npm
+  ✓ Claude Code
+  ✓ OpenCode (optional)
+  ✓ Python 3.10+
+
+Api Keys:
+  ✓ .env file exists
+  ✓ OPENAI_API_KEY
+  ✓ OPENROUTER_API_KEY (optional)
+  ✓ ANTHROPIC_API_KEY (optional)
+
+[... more categories ...]
+
+============================================================
+✓ ALL CHECKS PASSED
+Passed: 31/31 (100.0%)
+============================================================
+```
+
+The script provides a color-coded report:
+- **Green ✓** - Item is set up correctly
+- **Red ✗** - Item needs attention
+- **Overall status** - 100% = all pass, 80%+ = mostly ready, <80% = setup incomplete
+
+If any checks fail, proceed to the relevant setup sections below to fix them.
+
 ## LLM Configuration
 
 Before running workflows, configure which LLMs to use in `hephaestus_config.yaml`.

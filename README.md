@@ -195,6 +195,24 @@ And **flexibility where you need it**:
 - **Claude Code** - AI coding assistant that agents run inside
 - **API Keys**: OpenAI, OpenRouter, or Anthropic
 
+### Validate Your Setup (macOS)
+
+Before starting, validate that everything is installed and configured correctly:
+
+```bash
+python check_setup_macos.py
+```
+
+This script checks:
+- ✅ All required CLI tools (tmux, git, docker, node, npm, Claude Code)
+- ✅ API keys in `.env` file
+- ✅ MCP servers configured
+- ✅ Configuration files and working directory
+- ✅ Running services (Docker, Qdrant)
+- ✅ Python and frontend dependencies
+
+The script provides a color-coded report showing what's set up and what needs attention.
+
 ### Get Started in 10 Minutes
 
 Build your first self-adapting workflow:
