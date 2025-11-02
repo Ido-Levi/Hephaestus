@@ -12,11 +12,11 @@ paths:
   database: "./hephaestus.db"
   phases_folder: "./example_workflows/crackme_solving"
   worktree_base: "/tmp/hephaestus_worktrees"
-  project_root: "/Users/idol/hephaestus_prd_tester/url_shortener_v2"  # Default working directory for agents
+  project_root: "./your_project"  # Default working directory for agents
 
 # Git Configuration
 git:
-  main_repo_path: "/Users/idol/hephaestus_prd_tester/url_shortener_v2"  # Must be a git repo
+  main_repo_path: "./your_project"  # Must be a git repo
   worktree_branch_prefix: "agent-"
   auto_commit: true
   conflict_resolution: "newest_file_wins"  # or "manual"

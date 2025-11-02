@@ -196,7 +196,6 @@ def main():
             workflow_config=PRD_WORKFLOW_CONFIG,  # Result handling config
             database_path=db_path,
             qdrant_url=qdrant_url,
-            # Use OpenAI as the reasoning provider for backend/monitor
             llm_provider="openai",
             llm_model="gpt-oss-120b",
             # LLM configuration now comes from hephaestus_config.yaml

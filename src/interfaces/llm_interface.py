@@ -205,7 +205,7 @@ Context: {' '.join(context[:10])}  # Limit context to avoid token overflow"""
         if phase_context:
             prompt += f"""
 
-Phase Context:
+# Phase info
 {phase_context}"""
 
         prompt += """
@@ -513,7 +513,7 @@ class AnthropicProvider(LLMProviderInterface):
         phase_context: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Enrich task using Claude."""
-        phase_info = f"\n\nPhase Context:\n{phase_context}" if phase_context else ""
+        phase_info = f"\n\n# Phase info\n{phase_context}" if phase_context else ""
         prompt = f"""Analyze and enrich this task for an AI agent orchestration system.
 
 Task: {task_description}
