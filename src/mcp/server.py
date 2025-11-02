@@ -1534,6 +1534,36 @@ async def create_task(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/validate_agent_id/{agent_id}")
+async def validate_agent_id(agent_id: str):
+    """Quick endpoint for agents to validate their ID format.
+    
+    Returns:
+        Success if ID matches UUID format, error otherwise
+    """
+    import re
+    uuid_pattern = re.compile(
+        r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+        re.IGNORECASE
+    )
+    
+    if uuid_pattern.match(agent_id):
+        return {
+            "valid": True,
+            "message": f"✅ Agent ID {agent_id} is valid UUID format"
+        }
+    else:
+        return {
+            "valid": False,
+            "message": f"❌ Agent ID '{agent_id}' is NOT valid. Use the UUID from your initial prompt.",
+            "common_mistakes": [
+                "Using 'agent-mcp' instead of actual UUID",
+                "Using 'main-session-agent' when you're not the main session",
+                "Typo in UUID"
+            ]
+        }
+
+
 @app.post("/update_task_status", response_model=UpdateTaskStatusResponse)
 async def update_task_status(
     request: UpdateTaskStatusRequest,

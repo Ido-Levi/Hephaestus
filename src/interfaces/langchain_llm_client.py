@@ -11,7 +11,7 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.output_parsers import JsonOutputParser
-from langchain.schema import Document
+from langchain_core.documents import Document
 from pydantic import BaseModel, Field
 from typing import Optional as Opt
 

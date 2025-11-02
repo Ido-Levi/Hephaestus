@@ -16,23 +16,26 @@ paths:
 
 # Git Configuration
 git:
-  main_repo_path: "./your_project"  # Must be a git repository
+  main_repo_path: "./your_project"  # Must be a git repo
   worktree_branch_prefix: "agent-"
   auto_commit: true
-  conflict_resolution: "newest_file_wins"  # Options: "newest_file_wins" or "manual"
+  conflict_resolution: "newest_file_wins"  # or "manual"
 
 # LLM Configuration
 llm:
+  # Keep OpenAI embeddings as requested
   embedding_model: "text-embedding-3-large"
 
-  # Default LLM settings for SDK workflows and legacy single-provider mode
+  # Used by: SDK workflows, legacy single-provider mode, and when multi-provider config is unavailable
+  # This replaces the deprecated LLM_MODEL env variable
   default_provider: "openrouter"
   default_model: "openai/gpt-oss-120b"
-  default_openrouter_provider: "cerebras"
+  default_openrouter_provider: "cerebras"  # For OpenRouter, specify which provider to use
   default_temperature: 0.7
   default_max_tokens: 4000
 
   # Provider configurations
+  # NOTE: models lists are not validated - you can use any model from the provider
   providers:
     openai:
       api_key_env: "OPENAI_API_KEY"
@@ -44,7 +47,7 @@ llm:
     groq:
       api_key_env: "GROQ_API_KEY"
 
-  # Model assignments per system component
+  # Model assignment per component
   model_assignments:
     task_enrichment:
       provider: "openrouter"
@@ -84,12 +87,13 @@ llm:
 # Agent Configuration
 agents:
   default_cli_tool: "claude"
-  cli_model: "GLM-4.6"  # Options: "sonnet", "opus", "haiku", or "GLM-4.6"
-  glm_api_token_env: "GLM_API_TOKEN"
+  cli_model: "GLM-4.6"  # Model to use: "sonnet", "opus", "haiku", or "GLM-4.6"
+#  cli_model: "GLM-4.6"  # Model to use: "sonnet", "opus", "haiku", or "GLM-4.6"
+  glm_api_token_env: "GLM_API_TOKEN"  # Environment variable name for GLM API token
   tmux_session_prefix: "agent"
-  health_check_interval: 60
+  health_check_interval: 60  # seconds
   max_health_failures: 3
-  termination_delay: 5
+  termination_delay: 5  # seconds to wait before terminating
 
 # Vector Store Configuration
 vector_store:
@@ -101,39 +105,39 @@ vector_store:
 monitoring:
   enabled: true
   interval_seconds: 60
-  log_level: "INFO"  # Options: DEBUG, INFO, WARNING, ERROR
-  log_format: "json"  # Options: "json" or "text"
-  stuck_agent_threshold: 300
-  guardian_min_agent_age_seconds: 60
+  log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  log_format: "json"  # or "text"
+  stuck_agent_threshold: 300  # seconds of inactivity before considered stuck
+  guardian_min_agent_age_seconds: 60  # Grace period before Guardian starts monitoring new agents
 
 # MCP Server Configuration
 mcp:
   auth_required: false
-  session_timeout: 3600
-  max_concurrent_agents: 6
+  session_timeout: 3600  # seconds
+  max_concurrent_agents: 6  # Set to 2 for testing queue functionality
 
 # Task Deduplication Configuration
 task_deduplication:
   enabled: true
-  similarity_threshold: 0.999
-  related_threshold: 0.5
+  similarity_threshold: 0.999  # Tasks above this are considered duplicates
+  related_threshold: 0.5     # Tasks above this are considered related
   embedding_model: "text-embedding-3-large"
-  embedding_dimension: 3072
-  batch_size: 100
+  embedding_dimension: 3072  # Dimension for text-embedding-3-large
+  batch_size: 100  # Number of tasks to compare at once for performance
 
 # Diagnostic Agent Configuration
 diagnostic_agent:
   enabled: false
-  cooldown_seconds: 60
-  min_stuck_time_seconds: 60
-  max_agents_to_analyze: 15
-  max_conductor_analyses: 5
-  max_tasks_per_run: 5
+  cooldown_seconds: 60  # Minimum time between diagnostic agent spawns
+  min_stuck_time_seconds: 60  # How long workflow must be stuck before triggering diagnostic
+  max_agents_to_analyze: 15  # Number of recent agents to include in diagnostic context
+  max_conductor_analyses: 5  # Number of recent Conductor analyses to include
+  max_tasks_per_run: 5  # Maximum tasks a diagnostic agent can create
 
 # Ticket Tracking Configuration
 ticket_tracking:
-  enabled: true
+  enabled: true  # Enable/disable ticket tracking system
   embedding:
-    model: "text-embedding-3-large"
-    dimensions: 3072
-    provider: "openai"
+    model: "text-embedding-3-large"  # OpenAI embedding model
+    dimensions: 3072                 # Vector dimensions
+    provider: "openai"               # openai or anthropic

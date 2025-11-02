@@ -446,7 +446,7 @@ def main():
     print("  5. Test each component (Phase 4)")
     print("  6. Document the system (Phase 5)")
     print("  7. Submit final result when complete")
-    print("\n[Kanban Board] Track progress at http://localhost:8000/tickets or http://localhost:3001/")
+    print("\n[Kanban Board] Track progress at http://localhost:8000/tickets or http://localhost:5173/")
     print("  - View components moving through: Backlog → Design → Implementation → Testing → Documentation → Done")
     print("\n[Project] Your Personal Task Manager will be built in:")
     print(f"  {project_path}")
