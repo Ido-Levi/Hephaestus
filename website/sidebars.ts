@@ -26,6 +26,14 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: '🔧 Troubleshooting',
+      collapsed: false,
+      items: [
+        'troubleshooting/agent-issues',
+      ],
+    },
+    {
+      type: 'category',
       label: '📖 Workflow Design Guides',
       collapsed: false,
       items: [
