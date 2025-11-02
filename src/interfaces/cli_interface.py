@@ -176,6 +176,101 @@ class ClaudeCodeAgent(CLIAgentInterface):
         }
 
 
+class OpenCodeAgent(CLIAgentInterface):
+    """Implementation for OpenCode CLI (open-source alternative to Claude Code).
+
+    OpenCode supports the -p flag to pre-load a prompt, but doesn't auto-submit it.
+    We save the prompt to a temp file, launch with -p "$(cat file)", then send Enter
+    after 5 seconds to submit the prompt.
+    """
+
+    def get_launch_command(self, system_prompt: str, **kwargs) -> str:
+        """Generate launch command for OpenCode.
+
+        OpenCode's -p flag adds the prompt but doesn't auto-submit.
+        We'll save the prompt to a temp file and use -p "$(cat file)" to load it.
+        The calling code will send Enter after 5 seconds to submit.
+        """
+        import os
+        from src.core.simple_config import get_config
+
+        config = get_config()
+
+        # Save prompt to a temp file
+        task_id = kwargs.get('task_id', 'default')
+        prompt_file = f"/tmp/opencode_prompt_{task_id}.txt"
+
+        # Write the system prompt to file
+        with open(prompt_file, 'w') as f:
+            f.write(system_prompt)
+
+        # Make sure the file is readable
+        os.chmod(prompt_file, 0o644)
+
+        # Get configured model (OpenCode uses provider/model format)
+        model = getattr(config, 'cli_model', 'anthropic/claude-sonnet-4')
+
+        # OpenCode command with -p flag to load the prompt
+        # The prompt will be added to the input but not submitted
+        command = f"opencode -p \"$(cat {prompt_file})\" --model {model}"
+
+        return command
+
+    def get_health_check_pattern(self) -> str:
+        """Return health check pattern for OpenCode.
+
+        OpenCode uses a prompt indicator in its TUI.
+        """
+        return r"(›|>|opencode>)"
+
+    def format_message(self, message: str) -> str:
+        """Format message for OpenCode.
+
+        OpenCode accepts plain text messages in its TUI.
+        """
+        return message
+
+    def get_stuck_patterns(self) -> List[str]:
+        """Return stuck patterns for OpenCode."""
+        return [
+            r"rate limit exceeded",
+            r"rate limit",
+            r"API error",
+            r"connection timeout",
+            r"Error:.*API",
+            r"Failed to connect",
+            r"Maximum retries exceeded",
+            r"authentication failed",
+            r"invalid API key",
+        ]
+
+    def parse_output(self, output: str) -> Dict[str, Any]:
+        """Parse OpenCode output."""
+        lines = output.strip().split('\n')
+        last_message = ""
+        is_waiting = False
+
+        # Look for the last response before a prompt indicator
+        for i in range(len(lines) - 1, -1, -1):
+            line = lines[i]
+            if "›" in line or ">" in line or "opencode>" in line:
+                is_waiting = True
+                # Get all lines after the previous prompt as the response
+                message_lines = []
+                for j in range(i - 1, -1, -1):
+                    if "›" in lines[j] or ">" in lines[j] or "opencode>" in lines[j]:
+                        break
+                    message_lines.insert(0, lines[j])
+                last_message = "\n".join(message_lines).strip()
+                break
+
+        return {
+            "last_message": last_message,
+            "is_waiting": is_waiting,
+            "total_lines": len(lines),
+        }
+
+
 class CodexAgent(CLIAgentInterface):
     """Implementation for Codex CLI."""
 
@@ -284,6 +379,7 @@ class SwarmCodeAgent(CLIAgentInterface):
 # Registry for available CLI agents
 CLI_AGENTS = {
     "claude": ClaudeCodeAgent,
+    "opencode": OpenCodeAgent,
     "codex": CodexAgent,
     "swarm": SwarmCodeAgent,
 }
@@ -293,7 +389,7 @@ def get_cli_agent(agent_type: str) -> CLIAgentInterface:
     """Get a CLI agent instance by type.
 
     Args:
-        agent_type: Type of CLI agent (claude, codex, etc.)
+        agent_type: Type of CLI agent (claude, opencode, codex, etc.)
 
     Returns:
         CLI agent instance

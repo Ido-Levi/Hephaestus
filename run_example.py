@@ -358,6 +358,9 @@ def main():
             mcp_port=mcp_port,
             monitoring_interval=monitoring_interval,
 
+            # Agent Configuration
+            default_cli_tool="claude",  # Options: "claude", "opencode", "codex"
+
             # Git Configuration
             main_repo_path=project_path,
             project_root=project_path,

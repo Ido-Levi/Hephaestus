@@ -11,7 +11,7 @@ A simple 3-phase bug fixing workflow:
 
 ## Prerequisites
 
-- **Claude Code** installed (AI coding assistant that agents run in)
+- **Claude Code**, **OpenCode**, or **Codex** installed (CLI AI tool that agents run in)
 - **tmux** installed (terminal multiplexer for agent isolation)
 - **Git** (for worktree isolation - your project directory must be a git repo)
 - **Python 3.10+**
@@ -63,18 +63,20 @@ llm:
 
 ### Agent CLI Configuration
 
-Agents run inside **Claude Code**. Configure which Claude model to use:
+Agents run inside a CLI AI tool. Choose which CLI tool to use:
 
-**Using Claude Code (Default)**:
+#### CLI Tool Options
+
+**Claude Code (Default)**:
 ```yaml
 agents:
   default_cli_tool: "claude"
-  cli_model: "sonnet"  # or "opus", "haiku"
+  cli_model: "sonnet"  # Options: "sonnet", "opus", "haiku", "GLM-4.6"
 ```
 
-This uses your **Anthropic subscription** through Claude Code.
+Uses your **Anthropic subscription** through Claude Code. Supports Claude models and GLM-4.6 for cheaper alternative.
 
-**Using GLM-4.6 (Cheaper Alternative)**:
+**Using GLM-4.6 (cheaper model through Claude Code)**:
 ```yaml
 agents:
   default_cli_tool: "claude"
@@ -89,6 +91,25 @@ GLM_API_TOKEN=your-glm-token
 ```
 
 GLM-4.6 is significantly cheaper than Claude models while maintaining good performance.
+
+**OpenCode (Open-Source Alternative)**:
+```yaml
+agents:
+  default_cli_tool: "opencode"
+  cli_model: "anthropic/claude-sonnet-4"  # Uses provider/model format
+```
+
+**OpenCode benefits:**
+- Supports 75+ LLM providers (Anthropic, OpenAI, OpenRouter, etc.)
+- Open-source and free
+- Uses `provider/model` format (e.g., `anthropic/claude-sonnet-4`, `openai/gpt-4`)
+
+**Install OpenCode:**
+```bash
+npm install -g @opencodehq/opencode
+# or
+pip install opencode
+```
 
 ## MCP Server Setup
 
