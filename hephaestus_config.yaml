@@ -101,7 +101,7 @@ vector_store:
   collection_prefix: "hephaestus"
   embedding_dimension: 1536
 
-# Monitoring Configurationr
+# Monitoring Configuration
 monitoring:
   enabled: true
   interval_seconds: 60
