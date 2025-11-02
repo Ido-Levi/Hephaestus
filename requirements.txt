@@ -18,7 +18,8 @@ websockets==13.0
 tenacity==8.2.3
 structlog==23.2.0
 prometheus-client==0.19.0
-langchain>=0.1.0
+langchain>=0.3.27
+langchain-core>=0.3.0
 langchain-openai>=0.0.5
 langchain-community>=0.0.10
 langchain-groq>=0.0.1
