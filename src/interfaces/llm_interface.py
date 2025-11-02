@@ -510,13 +510,15 @@ class AnthropicProvider(LLMProviderInterface):
         task_description: str,
         done_definition: str,
         context: List[str],
+        phase_context: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Enrich task using Claude."""
+        phase_info = f"\n\nPhase Context:\n{phase_context}" if phase_context else ""
         prompt = f"""Analyze and enrich this task for an AI agent orchestration system.
 
 Task: {task_description}
 Done Definition: {done_definition}
-Context: {' '.join(context[:10])}
+Context: {' '.join(context[:10])}{phase_info}
 
 Provide a JSON response with these exact keys:
 - enriched_description: Clear, unambiguous task description

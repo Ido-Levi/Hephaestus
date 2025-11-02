@@ -13,6 +13,9 @@ mcp>=1.18.0
 aiofiles==23.2.1
 python-dotenv==1.0.0
 watchdog==3.0.0
+gitpython>=3.1.0
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.0
 alembic==1.13.0
 websockets==13.0
 tenacity==8.2.3
@@ -22,7 +25,7 @@ langchain>=0.1.0
 langchain-openai>=0.0.5
 langchain-community>=0.0.10
 langchain-groq>=0.0.1
-requests==2.31.0
+requests>=2.32.5
 pyyaml==6.0.1
 textual==0.47.1
 rich==13.7.0

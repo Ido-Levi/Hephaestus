@@ -3,6 +3,7 @@
 import os
 import signal
 import subprocess
+import sys
 import time
 import threading
 from typing import Optional, Callable, Dict
@@ -55,7 +56,7 @@ class ProcessManager:
 
         # Command to run
         cmd = [
-            "python",
+            sys.executable,
             str(project_root / "run_server.py"),
         ]
 
@@ -87,7 +88,7 @@ class ProcessManager:
 
         # Command to run
         cmd = [
-            "python",
+            sys.executable,
             str(project_root / "run_monitor.py"),
         ]
 
