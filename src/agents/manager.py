@@ -373,7 +373,10 @@ class AgentManager:
 
         base_message = f"""
 === TASK ASSIGNMENT ===
-Your Agent ID: {agent_id}
+🔑 Your Agent ID: {agent_id}
+   ⚠️  CRITICAL: Use this EXACT ID when calling MCP tools (update_task_status, create_task, etc.)
+   ⚠️  DO NOT use 'agent-mcp' or any other placeholder - it will fail authorization!
+
 Task ID: {task.id}
 {cwd_info}
 """
@@ -452,6 +455,9 @@ IMPORTANT INSTRUCTIONS:
 1. Complete all the requirements listed in the COMPLETION CRITERIA above
 
 2. You have access to the Hephaestus MCP server tools. Use them to:
+   
+   🔑 REMEMBER: When calling these tools, always use agent_id="{agent_id}"
+   
    - update_task_status: Mark your task as done when completed (with task_id: {task.id})
    - save_memory: Save discoveries for other agents (USE THIS LIBERALLY - see Memory Guidelines below)
    - create_task: Create sub-tasks if you need to break down complex work

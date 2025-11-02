@@ -35,14 +35,15 @@ async def create_task(description: str, done_definition: str, agent_id: str, pha
     Args:
         description: What needs to be done
         done_definition: Clear criteria for completion
-        agent_id: Your agent ID (REQUIRED - use your assigned agent ID if you know it, or 'agent-mcp' if you don't know your ID)
+        agent_id: Your agent ID (REQUIRED - found in your initial prompt under "Your Agent ID:")
         phase_id: Phase ID for the task (REQUIRED - MUST specify which workflow phase this task belongs to, e.g., 1, 2, 3)
         priority: Task priority (low/medium/high)
         cwd: Current working directory for the task (optional)
         ticket_id: Associated ticket ID (OPTIONAL for SDK/root tasks, REQUIRED when ticket tracking is enabled for MCP agents)
 
     CRITICAL: You MUST provide both agent_id AND phase_id for every task.
-    - agent_id: Use your assigned agent ID or 'agent-mcp' if unknown. Main session uses 'main-session-agent'.
+    - agent_id: ALWAYS use YOUR agent ID from the prompt header (looks like "6a062184-e189-4d8d-8376-89da987b9996"). 
+      NEVER use placeholder values like 'agent-mcp' - they will cause authorization failures.
     - phase_id: REQUIRED - Specify the workflow phase number (e.g., 1 for Phase 1, 2 for Phase 2, etc.)
 
     IMPORTANT FOR TICKET TRACKING:
@@ -134,11 +135,12 @@ async def save_memory(content: str, agent_id: str, memory_type: str = "discovery
 
     Args:
         content: The memory content to save
-        agent_id: Your agent ID (REQUIRED - use your assigned agent ID if you know it, or 'agent-mcp' if you don't know your ID)
+        agent_id: Your agent ID (CRITICAL: must match YOUR agent ID from your initial prompt)
         memory_type: Type of memory (error_fix/discovery/decision/learning/warning/codebase_knowledge)
 
-    IMPORTANT: You MUST provide your agent_id. If you are a sub-agent working on tasks and don't know your ID, use 'agent-mcp' as default.
-    Only the main session should use 'main-session-agent'.
+    CRITICAL: Use your actual agent UUID from your initial prompt.
+    Example: agent_id="84f15f6c-35b1-4d57-97ac-92a3c0c94d29"
+    DO NOT use 'agent-mcp' or any placeholder - it will cause errors!
     """
     try:
         async with httpx.AsyncClient() as client:
@@ -179,14 +181,22 @@ async def update_task_status(
 
     Args:
         task_id: The ID of the task to update
-        agent_id: Your agent ID (REQUIRED - use your assigned agent ID if you know it, or 'agent-mcp' if you don't know your ID)
+        agent_id: Your agent ID (CRITICAL: must match YOUR agent ID from your initial prompt)
         status: New status (done/failed/in_progress)
         summary: Summary of what was accomplished (for done status)
         failure_reason: Reason for failure (for failed status)
         key_learnings: List of key learnings from the task
 
-    IMPORTANT: You MUST provide your agent_id. If you are a sub-agent working on tasks and don't know your ID, use 'agent-mcp' as default.
-    Only the main session should use 'main-session-agent'.
+    CRITICAL: agent_id must match YOUR agent ID from your initial prompt.
+    Example (use your actual ID from prompt):
+        update_task_status(
+            agent_id="6a062184-e189-4d8d-8376-89da987b9996",  # Your actual UUID
+            task_id="dc2c0279-ba16-4a8d-9fd5-846259967e68",
+            status="done",
+            summary="Task completed successfully"
+        )
+    
+    DO NOT use 'agent-mcp' or any placeholder - it will cause "Agent not authorized" errors!
     """
     try:
         async with httpx.AsyncClient() as client:
@@ -283,6 +293,44 @@ Iteration: {result.get('iteration', 'N/A')}"""
                 return f"❌ Failed to submit validation review: {response.text}"
     except Exception as e:
         return f"❌ Error submitting validation review: {str(e)}"
+
+
+@mcp.tool()
+async def validate_my_agent_id(agent_id: str) -> str:
+    """Validate that your agent ID has the correct format before using it.
+    
+    Args:
+        agent_id: The agent ID you plan to use
+        
+    Returns:
+        Validation result with helpful error messages if invalid
+    
+    Use this tool if you're unsure about your agent ID format!
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{HEPHAESTUS_URL}/validate_agent_id/{agent_id}",
+                timeout=5.0
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result["valid"]:
+                    return f"✅ {result['message']}"
+                else:
+                    mistakes = "\n".join(f"  • {m}" for m in result["common_mistakes"])
+                    return f"""❌ {result['message']}
+
+Common mistakes:
+{mistakes}
+
+Check your initial prompt for "Your Agent ID:" - it should be a UUID like:
+  6a062184-e189-4d8d-8376-89da987b9996"""
+            else:
+                return f"❌ Validation failed: {response.text}"
+    except Exception as e:
+        return f"❌ Error validating agent ID: {str(e)}"
 
 
 @mcp.tool()
@@ -565,7 +613,7 @@ async def create_ticket(
     Returns similar tickets for duplicate detection.
 
     Args:
-        agent_id: Your agent ID
+        agent_id: Your agent ID (CRITICAL: use YOUR UUID from initial prompt, e.g., "84f15f6c-35b1-4d57-97ac-92a3c0c94d29")
         title: Short, descriptive title for the ticket (3-500 chars)
         description: Detailed description of what needs to be done (min 10 chars)
         ticket_type: Type of ticket (bug/feature/improvement/task/spike) - default: task
@@ -575,6 +623,9 @@ async def create_ticket(
         assigned_agent_id: Optional agent to assign ticket to
         parent_ticket_id: Optional parent ticket for sub-tickets
 
+    CRITICAL: agent_id must be your full UUID from your initial prompt!
+    DO NOT use 'agent' or 'agent-mcp' - it will fail with "Agent not found"!
+    
     IMPORTANT: Search for existing tickets before creating to avoid duplicates!
     Use search_tickets() with semantic search to find related work.
     """
