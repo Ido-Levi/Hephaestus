@@ -138,6 +138,9 @@ sdk = HephaestusSDK(
     # Working directory
     working_directory=working_directory,
 
+    # Agent CLI Tool (optional - overrides config file)
+    default_cli_tool="claude",  # Options: "claude" (default), "opencode", "codex"
+
     # Server
     mcp_port=mcp_port,
     monitoring_interval=monitoring_interval,
@@ -155,6 +158,7 @@ sdk = HephaestusSDK(
 - `phases=PRD_PHASES`: Pass the Python phase objects
 - `workflow_config=PRD_WORKFLOW_CONFIG`: Configure result handling
 - LLM configuration (provider, model) comes from `hephaestus_config.yaml`, not SDK params
+- `default_cli_tool`: Optional parameter to override the CLI tool (defaults to config file setting)
 - Git paths must match: `main_repo_path == project_root == working_directory`
 - `auto_commit=True`: Agent changes are automatically committed
 

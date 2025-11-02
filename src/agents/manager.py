@@ -236,10 +236,11 @@ class AgentManager:
                 logger.error(f"Tmux session {session_name} died during initialization wait!")
                 raise Exception(f"Tmux session died during initialization wait")
 
-            # Send initial prompt with verification and retry
+            # Send initial prompt (or just Enter for OpenCode)
             await self._send_initial_prompt_with_retry(
                 pane=pane,
                 cli_agent=cli_agent,
+                cli_type=cli_type,
                 initial_message=initial_message,
                 agent_id=agent_id,
                 task_id=task.id,
@@ -604,6 +605,7 @@ REMEMBER:
         self,
         pane,
         cli_agent,
+        cli_type: str,
         initial_message: str,
         agent_id: str,
         task_id: str,
@@ -615,6 +617,7 @@ REMEMBER:
         Args:
             pane: tmux pane object
             cli_agent: CLI agent interface instance
+            cli_type: Type of CLI agent (claude, opencode, etc.)
             initial_message: The initial message to send
             agent_id: Agent ID for logging
             task_id: Task ID for verification
@@ -627,51 +630,80 @@ REMEMBER:
         # Use Task ID as verification string (always present in initial message)
         verification_string = f"Task ID: {task_id}"
 
+        # Check if this is OpenCode (prompt already loaded via -p flag)
+        is_opencode = cli_type == "opencode"
+
+        # Check if this is a Claude agent (needs chunking)
+        from src.interfaces.cli_interface import ClaudeCodeAgent
+        is_claude = isinstance(cli_agent, ClaudeCodeAgent)
+
         # If verification is disabled, just send once and return
         if not verify_delivery:
-            logger.info(f"Sending initial prompt to agent {agent_id} (verification disabled)")
+            if is_opencode:
+                # OpenCode: Prompt already loaded via -p flag, just send Enter after 5 seconds
+                logger.info(f"OpenCode agent: Prompt loaded via -p flag, waiting 5 seconds then sending Enter")
+                await asyncio.sleep(5)
+                pane.send_keys('', enter=True)  # Send Enter to submit the prompt
+                logger.info(f"OpenCode: Enter sent to agent {agent_id}")
+            elif is_claude:
+                # Claude: Send in chunks to avoid tmux buffer issues with large prompts
+                logger.info(f"Sending initial prompt to agent {agent_id} (verification disabled)")
+                formatted_message = cli_agent.format_message(initial_message)
 
-            # Format the message first
-            formatted_message = cli_agent.format_message(initial_message)
+                chunk_size = 2500  # characters per chunk
+                num_chunks = (len(formatted_message) + chunk_size - 1) // chunk_size
+                logger.info(f"Claude agent: Sending prompt in {num_chunks} chunks ({len(formatted_message)} total chars)")
 
-            # Send in chunks to avoid tmux buffer issues with large prompts
-            chunk_size = 2500  # characters per chunk
-            num_chunks = (len(formatted_message) + chunk_size - 1) // chunk_size
-            logger.info(f"Sending prompt in {num_chunks} chunks ({len(formatted_message)} total chars)")
+                for i in range(0, len(formatted_message), chunk_size):
+                    chunk = formatted_message[i:i+chunk_size]
+                    pane.send_keys(chunk)  # No enter=True, just send the text
+                    await asyncio.sleep(0.2)  # Delay between chunks to avoid overwhelming tmux
 
-            for i in range(0, len(formatted_message), chunk_size):
-                chunk = formatted_message[i:i+chunk_size]
-                pane.send_keys(chunk)  # No enter=True, just send the text
-                await asyncio.sleep(0.2)  # Delay between chunks to avoid overwhelming tmux
+                # Now send Enter to submit the entire message
+                logger.info(f"All chunks sent, submitting message with Enter")
+                await asyncio.sleep(0.5)  # Brief pause before Enter
+                pane.send_keys('', enter=True)  # This sends just the Enter key
+                logger.info(f"Initial prompt sent to agent {agent_id}")
+            else:
+                # Other agents: Send entire prompt in one go
+                logger.info(f"Sending initial prompt to agent {agent_id} (verification disabled)")
+                formatted_message = cli_agent.format_message(initial_message)
+                logger.info(f"Non-Claude agent: Sending entire prompt in one message ({len(formatted_message)} chars)")
+                pane.send_keys(formatted_message, enter=True)
+                logger.info(f"Initial prompt sent to agent {agent_id}")
 
-            # Now send Enter to submit the entire message
-            logger.info(f"All chunks sent, submitting message with Enter")
-            await asyncio.sleep(0.5)  # Brief pause before Enter
-            pane.send_keys('', enter=True)  # This sends just the Enter key
-            logger.info(f"Initial prompt sent to agent {agent_id}")
             return
 
         # Verification enabled - retry loop
         for attempt in range(1, max_retries + 1):
             logger.info(f"Sending initial prompt to agent {agent_id} (attempt {attempt}/{max_retries})")
 
-            # Format the message first
-            formatted_message = cli_agent.format_message(initial_message)
+            if is_opencode:
+                # OpenCode: Prompt already loaded via -p flag, just send Enter after 5 seconds
+                logger.info(f"OpenCode agent: Prompt loaded via -p flag, waiting 5 seconds then sending Enter")
+                await asyncio.sleep(5)
+                pane.send_keys('', enter=True)  # Send Enter to submit the prompt
+            elif is_claude:
+                # Claude: Send in chunks to avoid tmux buffer issues with large prompts
+                formatted_message = cli_agent.format_message(initial_message)
+                chunk_size = 2000  # characters per chunk
+                num_chunks = (len(formatted_message) + chunk_size - 1) // chunk_size
+                logger.info(f"Claude agent: Sending prompt in {num_chunks} chunks ({len(formatted_message)} total chars)")
 
-            # Send in chunks to avoid tmux buffer issues with large prompts
-            chunk_size = 2000  # characters per chunk
-            num_chunks = (len(formatted_message) + chunk_size - 1) // chunk_size
-            logger.info(f"Sending prompt in {num_chunks} chunks ({len(formatted_message)} total chars)")
+                for i in range(0, len(formatted_message), chunk_size):
+                    chunk = formatted_message[i:i+chunk_size]
+                    pane.send_keys(chunk)  # No enter=True, just send the text
+                    await asyncio.sleep(0.1)  # Delay between chunks to avoid overwhelming tmux
 
-            for i in range(0, len(formatted_message), chunk_size):
-                chunk = formatted_message[i:i+chunk_size]
-                pane.send_keys(chunk)  # No enter=True, just send the text
-                await asyncio.sleep(0.1)  # Delay between chunks to avoid overwhelming tmux
-
-            # Now send Enter to submit the entire message
-            logger.info(f"All chunks sent, submitting message with Enter")
-            await asyncio.sleep(0.5)  # Brief pause before Enter
-            pane.send_keys('', enter=True)  # This sends just the Enter key
+                # Now send Enter to submit the entire message
+                logger.info(f"All chunks sent, submitting message with Enter")
+                await asyncio.sleep(0.5)  # Brief pause before Enter
+                pane.send_keys('', enter=True)  # This sends just the Enter key
+            else:
+                # Other agents: Send entire prompt in one go
+                formatted_message = cli_agent.format_message(initial_message)
+                logger.info(f"Non-Claude agent: Sending entire prompt in one message ({len(formatted_message)} chars)")
+                pane.send_keys(formatted_message, enter=True)
 
             # Verify delivery
             if await self._verify_prompt_delivery(pane, verification_string, wait_seconds=10):
