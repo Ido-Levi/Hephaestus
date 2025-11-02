@@ -79,7 +79,7 @@ Passed: 31/31 (100.0%)
 The script provides a color-coded report:
 - **Green ✓** - Item is set up correctly
 - **Red ✗** - Item needs attention
-- **Overall status** - 100% = all pass, 80%+ = mostly ready, <80% = setup incomplete
+- **Overall status** - `100%` = all pass, `80%+` = mostly ready, `<80%` = setup incomplete
 
 If any checks fail, proceed to the relevant setup sections below to fix them.
 
