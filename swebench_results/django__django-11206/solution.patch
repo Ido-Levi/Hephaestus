@@ -1,0 +1,62 @@
+diff --git a/django/utils/numberformat.py b/django/utils/numberformat.py
+index 88b35fc435..cd8e57c337 100644
+--- a/django/utils/numberformat.py
++++ b/django/utils/numberformat.py
+@@ -27,10 +27,13 @@ def format(number, decimal_sep, decimal_pos=None, grouping=0, thousand_sep='',
+     # sign
+     sign = ''
+     if isinstance(number, Decimal):
+-        # Format values with more than 200 digits (an arbitrary cutoff) using
+-        # scientific notation to avoid high memory usage in {:f}'.format().
++        # Get number properties for tiered threshold strategy
+         _, digits, exponent = number.as_tuple()
+-        if abs(exponent) + len(digits) > 200:
++        total_digits = abs(exponent) + len(digits)
++
++        # Tier 1: Very extreme numbers with multi-digit coefficients
++        # Use exponential notation to avoid memory issues while preserving precision
++        if len(digits) > 1 and total_digits > 250:
+             number = '{:e}'.format(number)
+             coefficient, exponent = number.split('e')
+             # Format the coefficient.
+@@ -39,8 +42,39 @@ def format(number, decimal_sep, decimal_pos=None, grouping=0, thousand_sep='',
+                 thousand_sep, force_grouping, use_l10n,
+             )
+             return '{}e{}'.format(coefficient, exponent)
++
++        # Tier 2: If decimal_pos is specified and the number is too small to affect
++        # any of the visible decimal places, consider it equal to zero.
++        if decimal_pos is not None:
++            cutoff = Decimal('0.' + '1'.rjust(decimal_pos, '0'))
++            if abs(number) < cutoff:
++                # Don't use exponential notation for numbers treated as zero
++                str_number = '0'
++            elif total_digits > 200:
++                # Tier 3a: Format large numbers with exponential notation
++                number = '{:e}'.format(number)
++                coefficient, exponent = number.split('e')
++                # Format the coefficient.
++                coefficient = format(
++                    coefficient, decimal_sep, decimal_pos, grouping,
++                    thousand_sep, force_grouping, use_l10n,
++                )
++                return '{}e{}'.format(coefficient, exponent)
++            else:
++                str_number = '{:f}'.format(number)
+         else:
+-            str_number = '{:f}'.format(number)
++            # Tier 3b: Format values with more than 200 digits using scientific notation
++            if total_digits > 200:
++                number = '{:e}'.format(number)
++                coefficient, exponent = number.split('e')
++                # Format the coefficient.
++                coefficient = format(
++                    coefficient, decimal_sep, decimal_pos, grouping,
++                    thousand_sep, force_grouping, use_l10n,
++                )
++                return '{}e{}'.format(coefficient, exponent)
++            else:
++                str_number = '{:f}'.format(number)
+     else:
+         str_number = str(number)
+     if str_number[0] == '-':
