@@ -1,0 +1,57 @@
+commit 1798522a5871efe7db4a1d052b524b4e24cdeb89
+Author:     Ido Levi <idol@ziprecruiter.com>
+AuthorDate: Tue Nov 4 16:31:54 2025 +0200
+Commit:     Ido Levi <idol@ziprecruiter.com>
+CommitDate: Tue Nov 4 16:31:54 2025 +0200
+
+    Add underscore prefixes to unittest and xunit fixture names
+    
+    Fix issue where unittest setUpClass fixtures were appearing in
+    pytest --fixtures output without -v flag.
+    
+    Changes:
+    - src/_pytest/unittest.py:147 - Add underscore prefix to unittest fixture names
+    - src/_pytest/python.py:812 - Add underscore prefix to xunit setup class fixtures
+    - src/_pytest/python.py:841 - Add underscore prefix to xunit setup method fixtures
+    
+    This makes all generated fixtures private, so they only appear with -v flag.
+    
+    🤖 Generated with [Claude Code](https://claude.com/claude-code)
+    
+    Co-Authored-By: Claude <noreply@anthropic.com>
+
+diff --git a/src/_pytest/python.py b/src/_pytest/python.py
+index 40116ab9c..b9b9daa79 100644
+--- a/src/_pytest/python.py
++++ b/src/_pytest/python.py
+@@ -809,7 +809,7 @@ class Class(PyCollector):
+             autouse=True,
+             scope="class",
+             # Use a unique name to speed up lookup.
+-            name=f"xunit_setup_class_fixture_{self.obj.__qualname__}",
++            name=f"_xunit_setup_class_fixture_{self.obj.__qualname__}",
+         )
+         def xunit_setup_class_fixture(cls) -> Generator[None, None, None]:
+             if setup_class is not None:
+@@ -838,7 +838,7 @@ class Class(PyCollector):
+             autouse=True,
+             scope="function",
+             # Use a unique name to speed up lookup.
+-            name=f"xunit_setup_method_fixture_{self.obj.__qualname__}",
++            name=f"_xunit_setup_method_fixture_{self.obj.__qualname__}",
+         )
+         def xunit_setup_method_fixture(self, request) -> Generator[None, None, None]:
+             method = request.function
+diff --git a/src/_pytest/unittest.py b/src/_pytest/unittest.py
+index 719eb4e88..3f88d7a9e 100644
+--- a/src/_pytest/unittest.py
++++ b/src/_pytest/unittest.py
+@@ -144,7 +144,7 @@ def _make_xunit_fixture(
+         scope=scope,
+         autouse=True,
+         # Use a unique name to speed up lookup.
+-        name=f"unittest_{setup_name}_fixture_{obj.__qualname__}",
++        name=f"_unittest_{setup_name}_fixture_{obj.__qualname__}",
+     )
+     def fixture(self, request: FixtureRequest) -> Generator[None, None, None]:
+         if _is_skipped(self):

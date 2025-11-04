@@ -1,0 +1,28 @@
+diff --git a/django/db/backends/base/schema.py b/django/db/backends/base/schema.py
+index 61f88401ab..0600621e57 100644
+--- a/django/db/backends/base/schema.py
++++ b/django/db/backends/base/schema.py
+@@ -403,9 +403,22 @@ class BaseDatabaseSchemaEditor:
+         meta_constraint_names = {constraint.name for constraint in model._meta.constraints}
+         meta_index_names = {constraint.name for constraint in model._meta.indexes}
+         columns = [model._meta.get_field(field).column for field in fields]
++
++        # Enhanced constraint filtering to distinguish between unique and index constraints
++        # When deleting a unique constraint, ensure we only get unique constraints
++        # When deleting an index constraint, ensure we exclude unique constraints
++        enhanced_constraint_kwargs = constraint_kwargs.copy()
++        if constraint_kwargs.get('unique'):
++            # Looking for unique constraint, ensure unique=True
++            enhanced_constraint_kwargs['unique'] = True
++        elif constraint_kwargs.get('index'):
++            # Looking for index constraint, ensure index=True AND unique=False
++            enhanced_constraint_kwargs['index'] = True
++            enhanced_constraint_kwargs['unique'] = False
++
+         constraint_names = self._constraint_names(
+             model, columns, exclude=meta_constraint_names | meta_index_names,
+-            **constraint_kwargs
++            **enhanced_constraint_kwargs
+         )
+         if len(constraint_names) != 1:
+             raise ValueError("Found wrong number (%s) of constraints for %s(%s)" % (
