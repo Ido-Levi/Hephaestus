@@ -1,0 +1,96 @@
+diff --git a/xarray/core/computation.py b/xarray/core/computation.py
+index 823cbe02..3f7850da 100644
+--- a/xarray/core/computation.py
++++ b/xarray/core/computation.py
+@@ -1905,7 +1905,7 @@ def polyval(
+     coeffs = coeffs.reindex(
+         {degree_dim: np.arange(max_deg + 1)}, fill_value=0, copy=False
+     )
+-    coord = _ensure_numeric(coord)  # type: ignore # https://github.com/python/mypy/issues/1533 ?
++    coord = _ensure_numeric(coord, use_coord=True)  # type: ignore # https://github.com/python/mypy/issues/1533 ?
+ 
+     # using Horner's method
+     # https://en.wikipedia.org/wiki/Horner%27s_method
+@@ -1917,23 +1917,64 @@ def polyval(
+     return res
+ 
+ 
+-def _ensure_numeric(data: T_Xarray) -> T_Xarray:
++def _ensure_numeric(
++    data: T_Xarray, use_coord: bool = False, dim: Hashable | None = None
++) -> T_Xarray:
+     """Converts all datetime64 variables to float64
+ 
+     Parameters
+     ----------
+     data : DataArray or Dataset
+         Variables with possible datetime dtypes.
++    use_coord : bool, default False
++        If True, extract and convert coordinate values instead of data values.
++        Requires that data is a DataArray with at least one dimension.
++    dim : Hashable, optional
++        Which dimension's coordinate to extract when use_coord=True.
++        If None, uses the first dimension.
+ 
+     Returns
+     -------
+     DataArray or Dataset
+         Variables with datetime64 dtypes converted to float64.
+     """
++    from .dataarray import DataArray
+     from .dataset import Dataset
+ 
+     def to_floatable(x: DataArray) -> DataArray:
+-        if x.dtype.kind in "mM":
++        # If extracting coordinate, get the coordinate variable
++        if use_coord and isinstance(x, DataArray):
++            if not x.dims:
++                raise ValueError(
++                    "Cannot extract coordinate from 0-dimensional DataArray"
++                )
++            coord_dim = dim if dim is not None else x.dims[0]
++            if coord_dim in x.coords:
++                # Extract the coordinate values, not the data
++                coord_var = x.coords[coord_dim]
++                # Get the numpy array values
++                coord_values = coord_var.values
++
++                # Convert datetime/timedelta to numeric
++                if coord_var.dtype.kind == "M":  # datetime64
++                    coord_values = datetime_to_numeric(
++                        coord_values,
++                        offset=np.datetime64("1970-01-01"),
++                        datetime_unit="ns",
++                    )
++                elif coord_var.dtype.kind == "m":  # timedelta64
++                    # Convert timedelta to numeric nanoseconds
++                    coord_values = datetime_to_numeric(
++                        coord_values,
++                        offset=np.timedelta64(0, "ns"),
++                        datetime_unit="ns",
++                    )
++
++                # Return DataArray with converted coordinate values
++                return x.copy(data=coord_values)
++            # If no coordinate, fall through to convert data
++
++        if x.dtype.kind == "M":  # datetime64
+             return x.copy(
+                 data=datetime_to_numeric(
+                     x.data,
+@@ -1941,6 +1982,15 @@ def _ensure_numeric(data: T_Xarray) -> T_Xarray:
+                     datetime_unit="ns",
+                 ),
+             )
++        elif x.dtype.kind == "m":  # timedelta64
++            # Convert timedelta to float (nanoseconds) without datetime offset
++            return x.copy(
++                data=datetime_to_numeric(
++                    x.data,
++                    offset=np.timedelta64(0, "ns"),
++                    datetime_unit="ns",
++                ),
++            )
+         return x
+ 
+     if isinstance(data, Dataset):

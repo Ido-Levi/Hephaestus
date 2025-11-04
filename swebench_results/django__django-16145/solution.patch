@@ -1,0 +1,26 @@
+diff --git a/django/core/management/commands/runserver.py b/django/core/management/commands/runserver.py
+index 3c39f57e4d..a13d627727 100644
+--- a/django/core/management/commands/runserver.py
++++ b/django/core/management/commands/runserver.py
+@@ -110,6 +110,12 @@ class Command(BaseCommand):
+             self._raw_ipv6 = self.use_ipv6
+         self.run(**options)
+ 
++    def get_display_addr(self):
++        """Return the normalized address for display purposes."""
++        if self.addr == '0':
++            return '::' if self.use_ipv6 else '0.0.0.0'
++        return self.addr
++
+     def run(self, **options):
+         """Run the server, using the autoreloader if needed."""
+         use_reloader = options["use_reloader"]
+@@ -147,7 +153,7 @@ class Command(BaseCommand):
+                 "version": self.get_version(),
+                 "settings": settings.SETTINGS_MODULE,
+                 "protocol": self.protocol,
+-                "addr": "[%s]" % self.addr if self._raw_ipv6 else self.addr,
++                "addr": "[%s]" % self.get_display_addr() if self._raw_ipv6 else self.get_display_addr(),
+                 "port": self.port,
+                 "quit_command": quit_command,
+             }

@@ -11,6 +11,7 @@ Usage:
 """
 
 import argparse
+import random
 import sys
 from pathlib import Path
 from typing import List, Set
@@ -112,8 +113,8 @@ def generate_instances_yaml(
         print(f"[Warning] Using all {len(available_instances)} available instances")
         count = len(available_instances)
 
-    # Select first N available instances
-    selected_instances = available_instances[:count]
+    # Randomly select N available instances
+    selected_instances = random.sample(available_instances, count)
 
     # Create YAML structure
     yaml_data = {

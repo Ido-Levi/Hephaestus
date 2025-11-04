@@ -38,7 +38,7 @@ class SWEBenchBatchRunner:
     def __init__(
         self,
         instances_file: str,
-        api_url: str = "http://localhost:4000/api/results",
+        api_url: str = "http://localhost:5173/api/results",
         qdrant_url: str = "http://localhost:6333",
         db_path: str = "./hephaestus.db",
         poll_interval: int = 60,
@@ -507,8 +507,8 @@ Example usage:
 
     parser.add_argument(
         "--api-url",
-        default="http://localhost:4000/api/results",
-        help="API URL for results (default: http://localhost:4000/api/results)"
+        default="http://localhost:5173/api/results",
+        help="API URL for results (default: http://localhost:5173/api/results)"
     )
 
     parser.add_argument(
