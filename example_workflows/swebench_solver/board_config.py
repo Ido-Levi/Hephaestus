@@ -79,8 +79,8 @@ Commit SHA: {COMMIT_SHA}
 STEP 1: Clone Fresh Repository
 ```bash
 # Clone to a new temporary location
-git clone {REPO_URL} /tmp/validation_repo
-cd /tmp/validation_repo
+git clone {REPO_URL} /tmp/validation_repo_<random_suffix>
+cd /tmp/validation_repo_<random_suffix>
 
 # Checkout the exact commit
 git checkout {COMMIT_SHA}
@@ -102,7 +102,7 @@ You MUST verify the patch applies cleanly and solves the issue!
 
 ```bash
 # Copy the solution.patch from extra_files
-cp /path/to/extra_files/solution.patch /tmp/validation_repo/
+cp /path/to/extra_files/solution.patch /tmp/validation_repo_<random_suffix>
 
 # Attempt to apply the patch
 echo "🧪 CRITICAL: Applying patch to verify it works..."
@@ -309,7 +309,7 @@ When validating:
 
 Before approving ANY submission, you MUST complete this checklist:
 
-☐ 1. Cloned fresh repository to /tmp/validation_repo
+☐ 1. Cloned fresh repository to /tmp/validation_repo_<random_suffix>
 ☐ 2. Checked out exact commit SHA
 ☐ 3. Reproduced original issue (confirmed bug exists)
 ☐ 4. Read solution.patch from extra_files
