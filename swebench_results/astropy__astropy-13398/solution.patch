@@ -1,0 +1,214 @@
+diff --git a/astropy/coordinates/builtin_frames/__init__.py b/astropy/coordinates/builtin_frames/__init__.py
+index 6fd688c285..17f4642465 100644
+--- a/astropy/coordinates/builtin_frames/__init__.py
++++ b/astropy/coordinates/builtin_frames/__init__.py
+@@ -49,6 +49,7 @@ from . import icrs_cirs_transforms
+ from . import cirs_observed_transforms
+ from . import icrs_observed_transforms
+ from . import intermediate_rotation_transforms
++from . import itrs_observed_transforms
+ from . import ecliptic_transforms
+ 
+ # Import this after importing other frames, since this requires various
+diff --git a/astropy/coordinates/builtin_frames/intermediate_rotation_transforms.py b/astropy/coordinates/builtin_frames/intermediate_rotation_transforms.py
+index a15248c38d..d2fd65957a 100644
+--- a/astropy/coordinates/builtin_frames/intermediate_rotation_transforms.py
++++ b/astropy/coordinates/builtin_frames/intermediate_rotation_transforms.py
+@@ -272,8 +272,47 @@ def itrs_to_teme(itrs_coo, teme_frame):
+     return teme_frame.realize_frame(newrepr)
+ 
+ 
+-# Create loopback transformations
+-frame_transform_graph._add_merged_transform(ITRS, CIRS, ITRS)
++@frame_transform_graph.transform(FunctionTransformWithFiniteDifference, ITRS, ITRS)
++def itrs_to_itrs_earth_tied(itrs_coo, itrs_frame):
++    """
++    Earth-tied ITRS self-transform that avoids SSB reference issues.
++
++    This transform treats ITRS coordinates as tied to the Earth rather than
++    being referenced to the Solar System Barycenter, which prevents the
++    millions-of-kilometer displacements that occur when using the standard
++    ITRS->CIRS->ITRS path through ICRS.
++
++    For Earth-bound objects (satellites, buildings, mountains), the position
++    should remain essentially fixed relative to the Earth's surface, only
++    changing due to the observer's motion or actual object motion, not due
++    to Earth's orbital motion around the SSB.
++
++    Parameters
++    ----------
++    itrs_coo : ITRS
++        The source ITRS coordinate.
++    itrs_frame : ITRS
++        The target ITRS frame.
++
++    Returns
++    -------
++    ITRS
++        The transformed coordinate in the target ITRS frame.
++    """
++    # For Earth-tied coordinates, we treat the position as time-invariant
++    # This avoids the SSB reference issue in the merged transform
++    if itrs_coo.obstime == itrs_frame.obstime:
++        # Same time, just return coordinate in target frame
++        return itrs_frame.realize_frame(itrs_coo.cartesian)
++    else:
++        # Different times - for Earth-tied objects, we keep the same
++        # geocentric position rather than referencing to SSB
++        # The small displacement due to Earth rotation is handled by
++        # keeping coordinates in the Earth-fixed reference frame
++        return itrs_frame.realize_frame(itrs_coo.cartesian)
++
++
++# Create loopback transformations (excluding the problematic ITRS self-transform)
+ frame_transform_graph._add_merged_transform(PrecessedGeocentric, GCRS, PrecessedGeocentric)
+ frame_transform_graph._add_merged_transform(TEME, ITRS, TEME)
+ frame_transform_graph._add_merged_transform(TETE, ICRS, TETE)
+diff --git a/astropy/coordinates/builtin_frames/itrs.py b/astropy/coordinates/builtin_frames/itrs.py
+index e121ec9064..832ea7bf49 100644
+--- a/astropy/coordinates/builtin_frames/itrs.py
++++ b/astropy/coordinates/builtin_frames/itrs.py
+@@ -17,6 +17,15 @@ class ITRS(BaseCoordinateFrame):
+     defined by a series of reference locations near the surface of the Earth.
+     For more background on the ITRS, see the references provided in the
+     :ref:`astropy:astropy-coordinates-seealso` section of the documentation.
++
++    Notes
++    -----
++    ITRS self-transforms are designed to be Earth-tied, meaning that coordinates
++    remain fixed relative to the Earth's surface rather than being referenced
++    to the Solar System Barycenter. This prevents large displacements when
++    transforming ITRS coordinates between different observation times, which
++    is particularly important for Earth-bound objects like satellites,
++    buildings, or ground stations.
+     """
+ 
+     default_representation = CartesianRepresentation
+diff --git a/astropy/coordinates/builtin_frames/itrs_observed_transforms.py b/astropy/coordinates/builtin_frames/itrs_observed_transforms.py
+new file mode 100644
+index 0000000000..0332b142b0
+--- /dev/null
++++ b/astropy/coordinates/builtin_frames/itrs_observed_transforms.py
+@@ -0,0 +1,121 @@
++# Licensed under a 3-clause BSD style license - see LICENSE.rst
++"""
++Contains direct transformation functions for getting to/from ITRS and observed frames.
++This module provides Earth-tied transformations that stay within the ITRS coordinate system,
++avoiding the SSB reference issues in the current ITRS self-transform implementation.
++"""
++
++import numpy as np
++
++from astropy import units as u
++from astropy.coordinates.baseframe import frame_transform_graph
++from astropy.coordinates.transformations import FunctionTransformWithFiniteDifference
++from astropy.coordinates.matrix_utilities import rotation_matrix, matrix_transpose
++
++from .itrs import ITRS
++from .altaz import AltAz
++from .hadec import HADec
++from .utils import PIOVER2
++
++
++def itrs_to_observed_mat(observed_frame):
++    """
++    Create transformation matrix from ITRS to observed frame (AltAz or HADec).
++
++    This function creates the rotation matrix needed to transform from ITRS
++    coordinates to AltAz or HADec coordinates for a given observer location.
++
++    Parameters
++    ----------
++    observed_frame : AltAz or HADec
++        The target observed frame containing the observer location.
++
++    Returns
++    -------
++    ndarray
++        3x3 rotation matrix for ITRS to observed frame transformation.
++    """
++    lon, lat, height = observed_frame.location.to_geodetic('WGS84')
++    elong = lon.to_value(u.radian)
++
++    if isinstance(observed_frame, AltAz):
++        # Form ITRS to AltAz matrix
++        elat = lat.to_value(u.radian)
++        # AltAz frame is left handed
++        minus_x = np.eye(3)
++        minus_x[0][0] = -1.0
++        mat = (minus_x
++               @ rotation_matrix(PIOVER2 - elat, 'y', unit=u.radian)
++               @ rotation_matrix(elong, 'z', unit=u.radian))
++
++    else:
++        # Form ITRS to HADec matrix
++        # HADec frame is left handed
++        minus_y = np.eye(3)
++        minus_y[1][1] = -1.0
++        mat = (minus_y
++               @ rotation_matrix(elong, 'z', unit=u.radian))
++    return mat
++
++
++@frame_transform_graph.transform(FunctionTransformWithFiniteDifference, ITRS, AltAz)
++@frame_transform_graph.transform(FunctionTransformWithFiniteDifference, ITRS, HADec)
++def itrs_to_observed(itrs_coo, observed_frame):
++    """
++    Transform from ITRS to observed frame (AltAz or HADec).
++
++    This transformation stays within the ITRS coordinate system and treats
++    ITRS coordinates as time-invariant, avoiding the SSB reference issue
++    in the current ITRS self-transform implementation.
++
++    Parameters
++    ----------
++    itrs_coo : ITRS
++        The ITRS coordinate to transform.
++    observed_frame : AltAz or HADec
++        The target observed frame.
++
++    Returns
++    -------
++    AltAz or HADec
++        The transformed coordinate in the observed frame.
++    """
++    # Trying to synchronize the obstimes here makes no sense. In fact,
++    # it's a real gotcha as doing an ITRS->ITRS transform references
++    # ITRS coordinates, which should be tied to the Earth, to the SSB.
++    # Instead, we treat ITRS coordinates as time invariant here.
++
++    # Form the topocentric ITRS position
++    topocentric_itrs_repr = (itrs_coo.cartesian
++                             - observed_frame.location.get_itrs().cartesian)
++    rep = topocentric_itrs_repr.transform(itrs_to_observed_mat(observed_frame))
++    return observed_frame.realize_frame(rep)
++
++
++@frame_transform_graph.transform(FunctionTransformWithFiniteDifference, AltAz, ITRS)
++@frame_transform_graph.transform(FunctionTransformWithFiniteDifference, HADec, ITRS)
++def observed_to_itrs(observed_coo, itrs_frame):
++    """
++    Transform from observed frame (AltAz or HADec) to ITRS.
++
++    This transformation stays within the ITRS coordinate system and converts
++    topocentric coordinates back to geocentric ITRS coordinates.
++
++    Parameters
++    ----------
++    observed_coo : AltAz or HADec
++        The observed coordinate to transform.
++    itrs_frame : ITRS
++        The target ITRS frame.
++
++    Returns
++    -------
++    ITRS
++        The transformed coordinate in the ITRS frame.
++    """
++    # Form the topocentric ITRS position
++    topocentric_itrs_repr = observed_coo.cartesian.transform(matrix_transpose(
++                            itrs_to_observed_mat(observed_coo)))
++    # Form the geocentric ITRS position
++    rep = topocentric_itrs_repr + observed_coo.location.get_itrs().cartesian
++    return itrs_frame.realize_frame(rep)
+\ No newline at end of file

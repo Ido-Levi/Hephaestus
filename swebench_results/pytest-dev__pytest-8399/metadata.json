@@ -1,0 +1,11 @@
+{
+  "instance_id": "pytest-dev__pytest-8399",
+  "start_time": "2025-11-04T16:25:10.817966",
+  "end_time": "2025-11-04T16:40:41.217124",
+  "duration_seconds": 930.4,
+  "duration_minutes": 15.51,
+  "duration_hours": 0.26,
+  "status": "completed",
+  "result_id": "result-c7c25041-1d43-417c-ad55-7a8ba413538e",
+  "validated_at": "2025-11-04T14:40:24.373879+00:00"
+}

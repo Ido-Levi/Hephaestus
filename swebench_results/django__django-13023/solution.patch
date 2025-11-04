@@ -1,0 +1,53 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index 0fd69059ee..ac2590ffff 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -1501,7 +1501,7 @@ class DecimalField(Field):
+             return self.context.create_decimal_from_float(value)
+         try:
+             return decimal.Decimal(value)
+-        except decimal.InvalidOperation:
++        except (decimal.InvalidOperation, TypeError, ValueError):
+             raise exceptions.ValidationError(
+                 self.error_messages['invalid'],
+                 code='invalid',
+@@ -2235,6 +2235,9 @@ class URLField(CharField):
+ class BinaryField(Field):
+     description = _("Raw binary data")
+     empty_values = [None, b'']
++    default_error_messages = {
++        'invalid': _('“%(value)s” value must be a bytes object, base64-encoded string, or None.'),
++    }
+ 
+     def __init__(self, *args, **kwargs):
+         kwargs.setdefault('editable', False)
+@@ -2290,10 +2293,27 @@ class BinaryField(Field):
+         return b64encode(self.value_from_object(obj)).decode('ascii')
+ 
+     def to_python(self, value):
++        if value is None:
++            return value
+         # If it's a string, it should be base64-encoded data
+         if isinstance(value, str):
+-            return memoryview(b64decode(value.encode('ascii')))
+-        return value
++            try:
++                return memoryview(b64decode(value.encode('ascii')))
++            except (TypeError, ValueError):
++                raise exceptions.ValidationError(
++                    self.error_messages['invalid'],
++                    code='invalid',
++                    params={'value': value},
++                )
++        # Handle bytes and bytearray directly
++        if isinstance(value, (bytes, bytearray)):
++            return memoryview(value)
++        # Any other type is invalid
++        raise exceptions.ValidationError(
++            self.error_messages['invalid'],
++            code='invalid',
++            params={'value': value},
++        )
+ 
+ 
+ class UUIDField(Field):

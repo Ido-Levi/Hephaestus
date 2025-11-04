@@ -1,0 +1,71 @@
+diff --git a/pylint/checkers/similar.py b/pylint/checkers/similar.py
+index c65b1c893..6854201ee 100644
+--- a/pylint/checkers/similar.py
++++ b/pylint/checkers/similar.py
+@@ -236,6 +236,10 @@ def hash_lineset(
+     :return: a dict linking hashes to corresponding start index and a dict that links this
+              index to the start and end lines in the file
+     """
++    # Early exit: if min_common_lines is 0, disable similarity checking
++    if min_common_lines == 0:
++        return {}, {}
++
+     hash2index = defaultdict(list)
+     index2lines = {}
+     # Comments, docstring and other specific patterns maybe excluded -> call to stripped_lines
+@@ -367,9 +371,13 @@ class Similar:
+         self.ignore_imports = ignore_imports
+         self.ignore_signatures = ignore_signatures
+         self.linesets: List["LineSet"] = []
++        # Early exit flag: disable checker when min_lines=0
++        self.disabled = (min_lines == 0)
+ 
+     def append_stream(self, streamid: str, stream: TextIO, encoding=None) -> None:
+         """append a file to search for similarities"""
++        if self.disabled:
++            return  # Early exit: checker disabled
+         if encoding is None:
+             readlines = stream.readlines
+         else:
+@@ -390,6 +398,8 @@ class Similar:
+ 
+     def run(self) -> None:
+         """start looking for similarities and display results on stdout"""
++        if self.disabled:
++            return  # Early exit: checker disabled
+         self._display_sims(self._compute_sims())
+ 
+     def _compute_sims(self) -> List[Tuple[int, Set[LinesChunkLimits_T]]]:
+@@ -813,6 +823,8 @@ class SimilarChecker(BaseChecker, Similar, MapReduceMixin):
+ 
+     def open(self):
+         """init the checkers: reset linesets and statistics information"""
++        if self.disabled:
++            return  # Early exit: checker disabled
+         self.linesets = []
+         self.stats = self.linter.add_stats(
+             nb_duplicated_lines=0, percent_duplicated_lines=0
+@@ -825,11 +837,15 @@ class SimilarChecker(BaseChecker, Similar, MapReduceMixin):
+ 
+         stream must implement the readlines method
+         """
++        if self.disabled:
++            return  # Early exit: checker disabled
+         with node.stream() as stream:
+             self.append_stream(self.linter.current_name, stream, node.file_encoding)
+ 
+     def close(self):
+         """compute and display similarities on closing (i.e. end of parsing)"""
++        if self.disabled:
++            return  # Early exit: checker disabled
+         total = sum(len(lineset) for lineset in self.linesets)
+         duplicated = 0
+         stats = self.stats
+@@ -863,6 +879,7 @@ class SimilarChecker(BaseChecker, Similar, MapReduceMixin):
+         recombined.ignore_docstrings = self.ignore_docstrings
+         recombined.ignore_imports = self.ignore_imports
+         recombined.ignore_signatures = self.ignore_signatures
++        recombined.disabled = self.disabled  # Propagate disabled flag
+         recombined.open()
+         Similar.combine_mapreduce_data(recombined, linesets_collection=data)
+         recombined.close()

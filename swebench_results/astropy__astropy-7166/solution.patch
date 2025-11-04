@@ -1,0 +1,28 @@
+diff --git a/astropy/utils/misc.py b/astropy/utils/misc.py
+index de3fb01d18..0384c5914a 100644
+--- a/astropy/utils/misc.py
++++ b/astropy/utils/misc.py
+@@ -537,6 +537,23 @@ class InheritDocstrings(type):
+                         val.__doc__ = super_method.__doc__
+                         break
+ 
++        for key, val in dct.items():
++            if (isinstance(val, property) and
++                is_public_member(key) and
++                val.fget is not None and val.fget.__doc__ is None):
++                for base in cls.__mro__[1:]:
++                    super_method = getattr(base, key, None)
++                    if isinstance(super_method, property) and super_method.fget is not None:
++                        # Create a new property preserving getter/setter/deleter but with inherited doc
++                        new_property = property(
++                            fget=val.fget,
++                            fset=val.fset,
++                            fdel=val.fdel,
++                            doc=super_method.fget.__doc__
++                        )
++                        setattr(cls, key, new_property)
++                        break
++
+         super().__init__(name, bases, dct)
+ 
+ 
