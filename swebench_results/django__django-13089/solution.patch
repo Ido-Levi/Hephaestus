@@ -1,0 +1,31 @@
+diff --git a/django/core/cache/backends/db.py b/django/core/cache/backends/db.py
+index 33c79c5a14..89e68fd46c 100644
+--- a/django/core/cache/backends/db.py
++++ b/django/core/cache/backends/db.py
+@@ -261,15 +261,21 @@ class DatabaseCache(BaseDatabaseCache):
+             cursor.execute("DELETE FROM %s WHERE expires < %%s" % table,
+                            [connection.ops.adapt_datetimefield_value(now)])
+             cursor.execute("SELECT COUNT(*) FROM %s" % table)
+-            num = cursor.fetchone()[0]
++            result = cursor.fetchone()
++            num = result[0] if result is not None else 0
+             if num > self._max_entries:
+                 cull_num = num // self._cull_frequency
++                # Fetch the cache keys to delete
+                 cursor.execute(
+-                    connection.ops.cache_key_culling_sql() % table,
++                    "SELECT cache_key FROM %s ORDER BY cache_key LIMIT %%s" % table,
+                     [cull_num])
+-                cursor.execute("DELETE FROM %s "
+-                               "WHERE cache_key < %%s" % table,
+-                               [cursor.fetchone()[0]])
++                keys_to_delete = [row[0] for row in cursor.fetchall()]
++                # Only delete if we actually got keys
++                if keys_to_delete:
++                    placeholders = ', '.join(['%s'] * len(keys_to_delete))
++                    cursor.execute(
++                        "DELETE FROM %s WHERE cache_key IN (%s)" % (table, placeholders),
++                        keys_to_delete)
+ 
+     def clear(self):
+         db = router.db_for_write(self.cache_model_class)

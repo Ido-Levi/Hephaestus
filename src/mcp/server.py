@@ -167,6 +167,7 @@ class SubmitResultRequest(BaseModel):
     markdown_file_path: str = Field(..., description="Path to markdown file with result evidence")
     explanation: str = Field(..., description="Brief explanation of what was accomplished")
     evidence: Optional[List[str]] = Field(default=None, description="List of evidence supporting completion")
+    extra_files: Optional[List[str]] = Field(default=None, description="List of additional file paths (e.g., patches, reproduction scripts) for validators")
 
 
 class SubmitResultResponse(BaseModel):
@@ -2140,6 +2141,7 @@ async def submit_result(
             markdown_file_path=request.markdown_file_path,
             explanation=request.explanation,
             evidence=request.evidence,
+            extra_files=request.extra_files,  # Pass extra files for validation
         )
 
         # Create AgentResult entry for tracking

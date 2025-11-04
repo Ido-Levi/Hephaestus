@@ -1,0 +1,42 @@
+diff --git a/sympy/sets/conditionset.py b/sympy/sets/conditionset.py
+index 118eda6f77..855a9f5e2f 100644
+--- a/sympy/sets/conditionset.py
++++ b/sympy/sets/conditionset.py
+@@ -242,9 +242,34 @@ def _eval_subs(self, old, new):
+             return self.func(sym, cond, base)
+         cond = self.condition.subs(old, new)
+         base = self.base_set.subs(old, new)
+-        if cond is S.true:
+-            return ConditionSet(new, Contains(new, base), base)
+-        return self.func(self.sym, cond, base)
++
++        # Evaluate the condition more thoroughly
++        cond_value = fuzzy_bool(cond)
++
++        if cond_value is True:  # Condition definitely true
++            # When condition is true, need to check compatibility with base set
++            # This preserves the original behavior for symbol assumption interactions
++            from sympy.sets.contains import Contains
++            contains_result = self.func(new, Contains(new, base), base)
++            # If new is a Symbol and contains_result simplified, use it
++            # Otherwise (e.g., new is a value like Rational), return base directly
++            if contains_result != self.func(new, Contains(new, base), base):
++                return contains_result
++            elif isinstance(new, Symbol):
++                return contains_result
++            else:
++                # For non-symbol substitutions, evaluate Contains directly
++                contains_check = fuzzy_bool(Contains(new, base))
++                if contains_check is True:
++                    return base
++                elif contains_check is False:
++                    return S.EmptySet
++                else:
++                    return base  # Unknown - return base
++        elif cond_value is False:  # Condition definitely false
++            return S.EmptySet
++        else:  # Condition unknown/symbolic
++            return self.func(self.sym, cond, base)
+ 
+     def dummy_eq(self, other, symbol=None):
+         if not isinstance(other, self.func):

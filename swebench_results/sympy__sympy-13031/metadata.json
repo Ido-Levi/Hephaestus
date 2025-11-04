@@ -1,0 +1,11 @@
+{
+  "instance_id": "sympy__sympy-13031",
+  "start_time": "2025-11-03T19:39:58.737269",
+  "end_time": "2025-11-03T20:01:02.511066",
+  "duration_seconds": 1263.77,
+  "duration_minutes": 21.06,
+  "duration_hours": 0.35,
+  "status": "completed",
+  "result_id": "result-dfcb88d1-a613-437a-819c-08cb35fd46fe",
+  "validated_at": "2025-11-03T18:00:47.640259+00:00"
+}

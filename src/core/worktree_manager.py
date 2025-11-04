@@ -525,33 +525,47 @@ class WorktreeManager:
             logger.info(f"[MAIN-MERGE:{agent_id}] Current HEAD: {worktree_repo.head.commit.hexsha}")
             logger.info(f"[MAIN-MERGE:{agent_id}] Current branch: {branch_name}")
 
-            # Get current main branch commit
-            main_commit = self.main_repo.heads.main.commit.hexsha
-            logger.info(f"[MAIN-MERGE:{agent_id}] Main branch commit: {main_commit}")
+            # Get base branch/commit reference from config
+            base_ref = self.config.base_branch
+            logger.info(f"[MAIN-MERGE:{agent_id}] Base reference: {base_ref}")
+
+            # Try to resolve base_ref - could be branch name or commit SHA
+            try:
+                # First try as a branch name
+                if hasattr(self.main_repo.heads, base_ref):
+                    base_commit = self.main_repo.heads[base_ref].commit.hexsha
+                    logger.info(f"[MAIN-MERGE:{agent_id}] Resolved '{base_ref}' as branch, commit: {base_commit}")
+                else:
+                    # Try as commit SHA
+                    base_commit = self.main_repo.commit(base_ref).hexsha
+                    logger.info(f"[MAIN-MERGE:{agent_id}] Resolved '{base_ref}' as commit SHA: {base_commit}")
+            except Exception as e:
+                logger.error(f"[MAIN-MERGE:{agent_id}] Failed to resolve base reference '{base_ref}': {e}")
+                raise ValueError(f"Invalid base_branch reference: {base_ref}")
 
             # Check if branch is already up-to-date
-            if worktree_repo.head.commit.hexsha == main_commit:
-                logger.info(f"[MAIN-MERGE:{agent_id}] Branch is already up-to-date with main")
+            if worktree_repo.head.commit.hexsha == base_commit:
+                logger.info(f"[MAIN-MERGE:{agent_id}] Branch is already up-to-date with {base_ref}")
                 return {
                     "status": "up_to_date",
                     "merge_commit_sha": worktree_repo.head.commit.hexsha,
                     "conflicts_resolved": [],
                     "total_conflicts": 0,
-                    "message": "Branch already up-to-date with main"
+                    "message": f"Branch already up-to-date with {base_ref}"
                 }
 
-            # Attempt to merge main into the current branch
-            logger.info(f"[MAIN-MERGE:{agent_id}] Attempting to merge main into {branch_name}")
+            # Attempt to merge base into the current branch
+            logger.info(f"[MAIN-MERGE:{agent_id}] Attempting to merge {base_ref} into {branch_name}")
 
             conflicts_resolved = []
             merge_commit_sha = None
 
             try:
-                # Merge main into current branch
+                # Merge base into current branch (use commit SHA for reliability)
                 merge_result = worktree_repo.git.merge(
-                    "main",
+                    base_commit,
                     no_ff=True,
-                    m=f"[Auto-Merge] Merged main into {branch_name} for agent {agent_id}"
+                    m=f"[Auto-Merge] Merged {base_ref} into {branch_name} for agent {agent_id}"
                 )
 
                 # Merge succeeded without conflicts
@@ -749,8 +763,8 @@ class WorktreeManager:
             self._complete_stuck_merge(agent_id, session)
 
             # ========== STEP 4: SET TARGET BRANCH ==========
-            target_branch = "main"
-            logger.info(f"[GIT-MERGE:{agent_id}] STEP 4: Target branch set to '{target_branch}'")
+            target_branch = self.config.base_branch
+            logger.info(f"[GIT-MERGE:{agent_id}] STEP 4: Target branch/commit set to '{target_branch}'")
 
             # ========== STEP 5: OPEN WORKTREE REPO ==========
             logger.info(f"[GIT-MERGE:{agent_id}] STEP 5: Opening worktree repository")

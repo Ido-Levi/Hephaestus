@@ -8,6 +8,7 @@ import {
   ResultSummary,
   ResultContentResponse,
   ResultValidationDetail,
+  ExtraFileContentResponse,
   TicketDetail,
   TicketComment,
   TicketHistory,
@@ -164,6 +165,18 @@ export const apiService = {
   getResultValidation: async (resultId: string): Promise<ResultValidationDetail | null> => {
     try {
       const { data } = await api.get(`/results/${resultId}/validation`);
+      return data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  getExtraFileContent: async (resultId: string, fileIndex: number): Promise<ExtraFileContentResponse | null> => {
+    try {
+      const { data } = await api.get(`/results/${resultId}/extra-files/${fileIndex}`);
       return data;
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 404) {

@@ -50,6 +50,7 @@ class Config:
         # Git settings
         git = config.get('git', {})
         self.main_repo_path = Path(git.get('main_repo_path', str(Path.cwd())))
+        self.base_branch = git.get('base_branch', 'main')  # Base branch/commit for merging
         self.worktree_branch_prefix = git.get('worktree_branch_prefix', 'agent-')
         self.auto_commit = git.get('auto_commit', True)
         self.conflict_resolution_strategy = git.get('conflict_resolution', 'newest_file_wins')
@@ -203,6 +204,8 @@ class Config:
             self.worktree_base_path = Path(os.getenv("WORKTREE_BASE_PATH"))
         if os.getenv("MAIN_REPO_PATH"):
             self.main_repo_path = Path(os.getenv("MAIN_REPO_PATH"))
+        if os.getenv("GIT_BASE_BRANCH"):
+            self.base_branch = os.getenv("GIT_BASE_BRANCH")
         if os.getenv("WORKTREE_MAX_COUNT"):
             self.max_worktrees = int(os.getenv("WORKTREE_MAX_COUNT"))
         if os.getenv("WORKTREE_MAX_DEPTH"):

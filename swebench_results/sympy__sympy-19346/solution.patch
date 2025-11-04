@@ -1,0 +1,49 @@
+diff --git a/sympy/printing/repr.py b/sympy/printing/repr.py
+index c936a692c0..1c5d8a9224 100644
+--- a/sympy/printing/repr.py
++++ b/sympy/printing/repr.py
+@@ -14,6 +14,7 @@
+ from mpmath.libmp import repr_dps, to_str as mlib_to_str
+ 
+ from .printer import Printer
++from sympy.utilities import default_sort_key
+ 
+ 
+ class ReprPrinter(Printer):
+@@ -144,6 +145,19 @@ def _print_EmptySequence(self, expr):
+     def _print_list(self, expr):
+         return "[%s]" % self.reprify(expr, ", ")
+ 
++    def _print_set(self, s):
++        if not s:
++            return "set()"
++        items = sorted(s, key=default_sort_key)
++        return "{%s}" % ", ".join([self._print(item) for item in items])
++
++    def _print_frozenset(self, s):
++        if not s:
++            return "frozenset()"
++        items = sorted(s, key=default_sort_key)
++        args = ", ".join([self._print(item) for item in items])
++        return "frozenset({%s})" % args
++
+     def _print_MatrixBase(self, expr):
+         # special case for some empty matrices
+         if (expr.rows == 0) ^ (expr.cols == 0):
+@@ -250,6 +264,16 @@ def _print_tuple(self, expr):
+         else:
+             return "(%s)" % self.reprify(expr, ", ")
+ 
++    def _print_dict(self, d):
++        if not d:
++            return "{}"
++        keys = sorted(d.keys(), key=default_sort_key)
++        items = []
++        for key in keys:
++            item = "%s: %s" % (self._print(key), self._print(d[key]))
++            items.append(item)
++        return "{%s}" % ", ".join(items)
++
+     def _print_WildFunction(self, expr):
+         return "%s('%s')" % (expr.__class__.__name__, expr.name)
+ 

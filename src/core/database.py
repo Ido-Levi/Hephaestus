@@ -445,6 +445,7 @@ class WorkflowResult(Base):
     agent_id = Column(String, ForeignKey("agents.id"), nullable=False)
     result_file_path = Column(Text, nullable=False)
     result_content = Column(Text, nullable=False)
+    extra_files = Column(JSON, nullable=True, default=list)  # List of additional file paths (e.g., patches, reproduction scripts)
     status = Column(
         String,
         CheckConstraint("status IN ('pending_validation', 'validated', 'rejected')"),

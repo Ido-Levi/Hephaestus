@@ -139,6 +139,7 @@ export interface ResultSummary {
   validated_at?: string | null;
   result_file_path?: string | null;
   validation_report_path?: string | null;
+  extra_files?: string[];
 }
 
 export interface ResultValidationDetail {
@@ -156,6 +157,16 @@ export interface ResultContentResponse {
   result_id: string;
   content: string;
   content_type?: 'markdown' | 'text';
+}
+
+export interface ExtraFileContentResponse {
+  result_id: string;
+  file_index: number;
+  file_path: string;
+  filename: string;
+  content: string;
+  content_type: 'text' | 'binary';
+  encoding: 'utf-8' | 'base64';
 }
 
 export interface WebSocketMessage {

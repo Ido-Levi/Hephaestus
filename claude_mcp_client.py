@@ -363,7 +363,7 @@ async def get_agent_status() -> str:
 
 
 @mcp.tool()
-async def submit_result(markdown_file_path: str, agent_id: str, explanation: str, evidence: list = None) -> str:
+async def submit_result(markdown_file_path: str, agent_id: str, explanation: str, evidence: list = None, extra_files: list = None) -> str:
     """Submit a workflow result with evidence for validation.
 
     Args:
@@ -371,6 +371,7 @@ async def submit_result(markdown_file_path: str, agent_id: str, explanation: str
         agent_id: Your agent ID
         explanation: Brief explanation of what was accomplished
         evidence: List of evidence supporting completion (optional)
+        extra_files: List of additional file paths (e.g., patches, reproduction scripts) for validators (optional)
 
     Use when you have found the definitive solution to a workflow problem.
     The markdown file should contain comprehensive evidence including:
@@ -378,6 +379,9 @@ async def submit_result(markdown_file_path: str, agent_id: str, explanation: str
     - Execution outputs and proof
     - Step-by-step methodology
     - Reproduction steps for verification
+
+    For SWEBench workflows, you should include:
+    - extra_files: ["./solution.patch", "./reproduction_instructions.md"]
     """
     try:
         async with httpx.AsyncClient() as client:
@@ -387,6 +391,7 @@ async def submit_result(markdown_file_path: str, agent_id: str, explanation: str
                     "markdown_file_path": markdown_file_path,
                     "explanation": explanation,
                     "evidence": evidence or [],
+                    "extra_files": extra_files or [],
                 },
                 headers={
                     "Content-Type": "application/json",

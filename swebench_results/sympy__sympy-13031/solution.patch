@@ -1,0 +1,32 @@
+diff --git a/sympy/matrices/common.py b/sympy/matrices/common.py
+index 7ef51bc847..eda76891e9 100644
+--- a/sympy/matrices/common.py
++++ b/sympy/matrices/common.py
+@@ -378,6 +378,13 @@ def hstack(cls, *args):
+             return cls._new()
+ 
+         kls = type(args[0])
++
++        # Special handling for zero-row matrices (see issue #12938)
++        # When all matrices have 0 rows, calculate total columns directly
++        if all(arg.rows == 0 for arg in args):
++            total_cols = sum(arg.cols for arg in args)
++            return kls._new(0, total_cols, [])
++
+         return reduce(kls.row_join, args)
+ 
+     def reshape(self, rows, cols):
+@@ -601,6 +608,13 @@ def vstack(cls, *args):
+             return cls._new()
+ 
+         kls = type(args[0])
++
++        # Special handling for zero-column matrices (parallel to hstack)
++        # When all matrices have 0 columns, calculate total rows directly
++        if all(arg.cols == 0 for arg in args):
++            total_rows = sum(arg.rows for arg in args)
++            return kls._new(total_rows, 0, [])
++
+         return reduce(kls.col_join, args)
+ 
+ 

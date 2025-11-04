@@ -23,6 +23,25 @@ def build_result_validator_prompt(
         Complete prompt for result validator agent
     """
 
+    # Format extra files list if present
+    extra_files_info = ""
+    extra_files_read_commands = ""
+    if result.extra_files and len(result.extra_files) > 0:
+        extra_files_list = "\n".join([f"   - {file_path}" for file_path in result.extra_files])
+        extra_files_info = f"""
+- Extra files for validation:
+{extra_files_list}
+
+IMPORTANT: Read these extra files to assist your validation!
+They contain patches, reproduction scripts, and other evidence."""
+
+        # Add Read commands for each extra file
+        extra_files_read_commands = "\n".join([
+            f'   Extra file {i+1}: Read("{file_path}")'
+            for i, file_path in enumerate(result.extra_files)
+        ])
+        extra_files_read_commands = f"\n{extra_files_read_commands}"
+
     prompt = f"""
 ================================================================================
 WORKFLOW RESULT VALIDATION TASK (NOT A TASK VALIDATION!)
@@ -33,14 +52,14 @@ You are a RESULT VALIDATOR AGENT. Your role is to validate a workflow-level resu
 CRITICAL INFORMATION - MEMORIZE THESE:
 - Your Agent ID: {validator_agent_id}
 - Result ID to validate: {result.id}
-- Result file path: {result.result_file_path}
+- Result file path: {result.result_file_path}{extra_files_info}
 
 ================================================================================
 STEP-BY-STEP INSTRUCTIONS:
 ================================================================================
 
-STEP 1: Read the result file
-   Execute: Read("{result.result_file_path}")
+STEP 1: Read the result file and extra files
+   Main result: Read("{result.result_file_path}"){extra_files_read_commands}
 
 STEP 2: Evaluate against criteria
    Check if the submission meets these requirements:

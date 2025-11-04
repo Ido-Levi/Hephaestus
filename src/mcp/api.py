@@ -1100,6 +1100,7 @@ class FrontendAPI:
     ) -> List[Dict[str, Any]]:
         session = self.db_manager.get_session()
         try:
+            logger.info(f"get_results called with scope={scope}, status={status}")
             results: List[Dict[str, Any]] = []
 
             search_term = search.lower() if search else None
@@ -1128,32 +1129,46 @@ class FrontendAPI:
                     wf_query = wf_query.filter(WorkflowResult.created_at <= created_before.replace(tzinfo=None))
 
                 for wf_result in wf_query.all():
-                    workflow = wf_result.workflow
-                    agent = wf_result.agent
-                    validator = wf_result.validator_agent
+                    try:
+                        workflow = wf_result.workflow
+                        agent = wf_result.agent
+                        validator = wf_result.validator_agent
 
-                    summary_source = wf_result.validation_feedback or (wf_result.result_content[:200] if wf_result.result_content else '')
+                        summary_source = wf_result.validation_feedback or (wf_result.result_content[:200] if wf_result.result_content else '')
 
-                    entry = {
-                        'result_id': wf_result.id,
-                        'scope': 'workflow',
-                        'workflow_id': wf_result.workflow_id,
-                        'workflow_name': workflow.name if workflow else None,
-                        'task_id': None,
-                        'task_description': None,
-                        'agent_id': wf_result.agent_id,
-                        'agent_label': (agent.id[:8] if agent else wf_result.agent_id[:8]) if wf_result.agent_id else None,
-                        'status': wf_result.status,
-                        'validation_feedback': wf_result.validation_feedback,
-                        'validation_evidence': wf_result.validation_evidence or [],
-                        'result_type': None,
-                        'summary': summary_source,
-                        'created_at': self._format_timestamp(wf_result.created_at),
-                        'validated_at': self._format_timestamp(wf_result.validated_at),
-                        'result_file_path': wf_result.result_file_path,
-                        'validation_report_path': None,
-                        'validator_agent_id': validator.id if validator else wf_result.validated_by_agent_id,
-                    }
+                        # Safely handle extra_files - ensure it's a list
+                        extra_files = []
+                        if wf_result.extra_files:
+                            if isinstance(wf_result.extra_files, list):
+                                extra_files = wf_result.extra_files
+                            else:
+                                logger.warning(f"extra_files is not a list for result {wf_result.id}: {type(wf_result.extra_files)}")
+                                extra_files = []
+
+                        entry = {
+                            'result_id': wf_result.id,
+                            'scope': 'workflow',
+                            'workflow_id': wf_result.workflow_id,
+                            'workflow_name': workflow.name if workflow else None,
+                            'task_id': None,
+                            'task_description': None,
+                            'agent_id': wf_result.agent_id,
+                            'agent_label': (agent.id[:8] if agent else wf_result.agent_id[:8]) if wf_result.agent_id else None,
+                            'status': wf_result.status,
+                            'validation_feedback': wf_result.validation_feedback,
+                            'validation_evidence': wf_result.validation_evidence or [],
+                            'result_type': None,
+                            'summary': summary_source,
+                            'created_at': self._format_timestamp(wf_result.created_at),
+                            'validated_at': self._format_timestamp(wf_result.validated_at),
+                            'result_file_path': wf_result.result_file_path,
+                            'validation_report_path': None,
+                            'validator_agent_id': validator.id if validator else wf_result.validated_by_agent_id,
+                            'extra_files': extra_files,
+                        }
+                    except Exception as e:
+                        logger.error(f"Error processing workflow result {wf_result.id}: {e}", exc_info=True)
+                        continue
 
                     if status and status != 'all' and entry['status'] != status:
                         continue
@@ -1211,10 +1226,11 @@ class FrontendAPI:
                         'result_type': task_result.result_type,
                         'summary': task_result.summary,
                         'created_at': self._format_timestamp(task_result.created_at),
-                        'validated_at': self._format_timestamp(task_result.verified_at),
+                        'validated_at': self._format_timestamp(task_result.verified_at),  # AgentResult uses verified_at not validated_at
                         'result_file_path': task_result.markdown_file_path,
                         'validation_report_path': None,
                         'validator_agent_id': validation.validator_agent_id if validation else None,
+                        'extra_files': [],  # Task results don't have extra_files yet, but include for consistency
                     }
 
                     if status and status != 'all' and entry['status'] != status:
@@ -1241,7 +1257,11 @@ class FrontendAPI:
 
             # Sort newest first
             results.sort(key=lambda item: item['created_at'] or '', reverse=True)
+            logger.info(f"get_results returning {len(results)} results")
             return results
+        except Exception as e:
+            logger.error(f"Error in get_results: {e}", exc_info=True)
+            raise
         finally:
             session.close()
 
@@ -1331,6 +1351,58 @@ class FrontendAPI:
                 }
 
             raise HTTPException(status_code=404, detail='Result not found')
+        finally:
+            session.close()
+
+    async def get_extra_file_content(self, result_id: str, file_index: int) -> Dict[str, Any]:
+        """Get content of a specific extra file for a result."""
+        session = self.db_manager.get_session()
+        try:
+            # Only workflow results have extra_files currently
+            workflow_result = session.query(WorkflowResult).filter_by(id=result_id).first()
+            if not workflow_result:
+                raise HTTPException(status_code=404, detail='Result not found')
+
+            if not workflow_result.extra_files or len(workflow_result.extra_files) == 0:
+                raise HTTPException(status_code=404, detail='No extra files found for this result')
+
+            if file_index < 0 or file_index >= len(workflow_result.extra_files):
+                raise HTTPException(status_code=400, detail=f'Invalid file index. Must be between 0 and {len(workflow_result.extra_files) - 1}')
+
+            file_path = workflow_result.extra_files[file_index]
+
+            # Security check: ensure file exists
+            if not os.path.exists(file_path):
+                raise HTTPException(status_code=404, detail=f'Extra file not found on disk: {os.path.basename(file_path)}')
+
+            # Read file content
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+            except UnicodeDecodeError:
+                # If it's a binary file, read as binary and encode as base64
+                with open(file_path, 'rb') as f:
+                    import base64
+                    content = base64.b64encode(f.read()).decode('utf-8')
+                return {
+                    'result_id': result_id,
+                    'file_index': file_index,
+                    'file_path': file_path,
+                    'filename': os.path.basename(file_path),
+                    'content': content,
+                    'content_type': 'binary',
+                    'encoding': 'base64',
+                }
+
+            return {
+                'result_id': result_id,
+                'file_index': file_index,
+                'file_path': file_path,
+                'filename': os.path.basename(file_path),
+                'content': content,
+                'content_type': 'text',
+                'encoding': 'utf-8',
+            }
         finally:
             session.close()
 
@@ -1554,6 +1626,11 @@ def create_frontend_routes(db_manager: DatabaseManager, agent_manager: AgentMana
     async def get_result_validation(result_id: str):
         """Get validation details for a specific result."""
         return await frontend_api.get_result_validation(result_id)
+
+    @router.get("/results/{result_id}/extra-files/{file_index}")
+    async def get_extra_file_content(result_id: str, file_index: int):
+        """Get content of a specific extra file for a result."""
+        return await frontend_api.get_extra_file_content(result_id, file_index)
 
     @router.get("/results/{result_id}/download")
     async def download_result_markdown(result_id: str):

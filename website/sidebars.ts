@@ -41,6 +41,7 @@ const sidebars: SidebarsConfig = {
         'guides/best-practices',
         'guides/guardian-monitoring',
         'guides/ticket-tracking',
+        'guides/running-swebench-benchmark',
       ],
     },
     {

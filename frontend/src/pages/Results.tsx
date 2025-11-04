@@ -154,11 +154,47 @@ const ResultContentDialog: React.FC<{
   result?: ResultSummary | null;
   onClose: () => void;
 }> = ({ resultId, result, onClose }) => {
+  const [expandedExtraFiles, setExpandedExtraFiles] = useState<Set<string>>(new Set());
+  const [extraFileContents, setExtraFileContents] = useState<Record<string, string>>({});
+
   const { data, isLoading, error } = useQuery<ResultContentResponse | null>({
     queryKey: ['result-content', resultId],
     queryFn: () => (resultId ? apiService.getResultContent(resultId) : null),
     enabled: Boolean(resultId),
   });
+
+  const handleToggleExtraFile = async (resultId: string, fileIndex: number) => {
+    const fileKey = `${resultId}-${fileIndex}`;
+
+    setExpandedExtraFiles((prev) => {
+      const next = new Set(Array.from(prev));
+      if (next.has(fileKey)) {
+        next.delete(fileKey);
+      } else {
+        next.add(fileKey);
+      }
+      return next;
+    });
+
+    // Fetch content if not already loaded
+    if (!extraFileContents[fileKey]) {
+      try {
+        const content = await apiService.getExtraFileContent(resultId, fileIndex);
+        if (content) {
+          setExtraFileContents((prev) => ({
+            ...prev,
+            [fileKey]: content.content,
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to fetch extra file content:', error);
+        setExtraFileContents((prev) => ({
+          ...prev,
+          [fileKey]: 'Failed to load file content.',
+        }));
+      }
+    }
+  };
 
   return (
     <Dialog open={Boolean(resultId)} onOpenChange={(open) => !open && onClose()}>
@@ -196,22 +232,23 @@ const ResultContentDialog: React.FC<{
           )}
         </DialogHeader>
 
-        <div className="space-y-4">
-          {isLoading && (
-            <div className="text-sm text-gray-500">Loading content...</div>
-          )}
-          {error && (
-            <div className="text-sm text-red-500">
-              Failed to load result content.
-            </div>
-          )}
-          {data === null && !isLoading && !error && (
-            <div className="rounded border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
-              Result content is not available yet.
-            </div>
-          )}
-          {data && (
-            <ScrollArea className="max-h-[60vh] rounded border">
+        <ScrollArea className="max-h-[70vh]">
+          <div className="space-y-4 pr-4">
+            {isLoading && (
+              <div className="text-sm text-gray-500">Loading content...</div>
+            )}
+            {error && (
+              <div className="text-sm text-red-500">
+                Failed to load result content.
+              </div>
+            )}
+            {data === null && !isLoading && !error && (
+              <div className="rounded border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
+                Result content is not available yet.
+              </div>
+            )}
+            {data && (
+              <div className="rounded border">
               <div className="markdown-body p-4 overflow-x-auto max-w-full">
                 <ReactMarkdown
                   rehypePlugins={[rehypeHighlight]}
@@ -266,10 +303,72 @@ const ResultContentDialog: React.FC<{
                   {data.content}
                 </ReactMarkdown>
               </div>
-            </ScrollArea>
-          )}
+            </div>
+            )}
 
-          <div className="flex justify-between text-sm text-gray-600">
+            {/* Extra Files Section in Modal */}
+          {result?.extra_files && result.extra_files.length > 0 && (
+            <div className="border-t pt-4">
+              <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                Extra Files ({result.extra_files.length})
+              </h4>
+              <div className="space-y-2">
+                {result.extra_files.map((filePath, index) => {
+                  const fileKey = `${result.result_id}-${index}`;
+                  const isFileExpanded = expandedExtraFiles.has(fileKey);
+                  const filename = filePath.split('/').pop() || filePath;
+
+                  return (
+                    <div key={fileKey} className="border rounded-lg overflow-hidden bg-white">
+                      <button
+                        onClick={() => handleToggleExtraFile(result.result_id, index)}
+                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-blue-600" />
+                          <span className="text-sm font-medium text-gray-700">{filename}</span>
+                        </div>
+                        {isFileExpanded ? (
+                          <ChevronUp className="h-4 w-4 text-gray-400" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 text-gray-400" />
+                        )}
+                      </button>
+
+                      <AnimatePresence initial={false}>
+                        {isFileExpanded && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="border-t bg-gray-50 overflow-hidden"
+                          >
+                            <div className="max-h-96 overflow-y-auto px-4 py-3">
+                              {extraFileContents[fileKey] ? (
+                                <pre className="text-xs font-mono text-gray-800 whitespace-pre-wrap break-words">
+                                  {extraFileContents[fileKey]}
+                                </pre>
+                              ) : (
+                                <div className="flex items-center justify-center py-4">
+                                  <RefreshCw className="h-4 w-4 animate-spin text-gray-400" />
+                                  <span className="ml-2 text-sm text-gray-500">Loading...</span>
+                                </div>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          </div>
+        </ScrollArea>
+
+        <div className="flex justify-between text-sm text-gray-600 pt-4 border-t">
             {resultId && (
               <button
                 onClick={() => downloadMarkdownFile(resultId, 'result')}
@@ -286,7 +385,6 @@ const ResultContentDialog: React.FC<{
               </span>
             )}
           </div>
-        </div>
       </DialogContent>
     </Dialog>
   );
@@ -494,6 +592,8 @@ const Results: React.FC = () => {
   const [selectedValidationId, setSelectedValidationId] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [connectivityWarning, setConnectivityWarning] = useState<string | null>(null);
+  const [expandedExtraFiles, setExpandedExtraFiles] = useState<Set<string>>(new Set());
+  const [extraFileContents, setExtraFileContents] = useState<Record<string, string>>({});
 
   const queryClient = useQueryClient();
   const { subscribe } = useWebSocket();
@@ -635,6 +735,39 @@ const Results: React.FC = () => {
       }
       return next;
     });
+  };
+
+  const handleToggleExtraFile = async (resultId: string, fileIndex: number) => {
+    const fileKey = `${resultId}-${fileIndex}`;
+
+    setExpandedExtraFiles((prev) => {
+      const next = new Set(Array.from(prev));
+      if (next.has(fileKey)) {
+        next.delete(fileKey);
+      } else {
+        next.add(fileKey);
+      }
+      return next;
+    });
+
+    // Fetch content if not already loaded
+    if (!extraFileContents[fileKey]) {
+      try {
+        const content = await apiService.getExtraFileContent(resultId, fileIndex);
+        if (content) {
+          setExtraFileContents((prev) => ({
+            ...prev,
+            [fileKey]: content.content,
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to fetch extra file content:', error);
+        setExtraFileContents((prev) => ({
+          ...prev,
+          [fileKey]: 'Failed to load file content.',
+        }));
+      }
+    }
   };
 
   const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -1052,6 +1185,66 @@ const Results: React.FC = () => {
                               </div>
                             </div>
                           </div>
+
+                          {/* Extra Files Section */}
+                          {result.extra_files && result.extra_files.length > 0 && (
+                            <div className="border-t px-5 py-4">
+                              <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                                Extra Files ({result.extra_files.length})
+                              </h4>
+                              <div className="space-y-2">
+                                {result.extra_files.map((filePath, index) => {
+                                  const fileKey = `${result.result_id}-${index}`;
+                                  const isFileExpanded = expandedExtraFiles.has(fileKey);
+                                  const filename = filePath.split('/').pop() || filePath;
+
+                                  return (
+                                    <div key={fileKey} className="border rounded-lg overflow-hidden bg-white">
+                                      <button
+                                        onClick={() => handleToggleExtraFile(result.result_id, index)}
+                                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <FileText className="h-4 w-4 text-blue-600" />
+                                          <span className="text-sm font-medium text-gray-700">{filename}</span>
+                                        </div>
+                                        {isFileExpanded ? (
+                                          <ChevronUp className="h-4 w-4 text-gray-400" />
+                                        ) : (
+                                          <ChevronDown className="h-4 w-4 text-gray-400" />
+                                        )}
+                                      </button>
+
+                                      <AnimatePresence initial={false}>
+                                        {isFileExpanded && (
+                                          <motion.div
+                                            initial={{ height: 0, opacity: 0 }}
+                                            animate={{ height: 'auto', opacity: 1 }}
+                                            exit={{ height: 0, opacity: 0 }}
+                                            transition={{ duration: 0.2 }}
+                                            className="border-t bg-gray-50"
+                                          >
+                                            <div className="px-4 py-3 max-h-96 overflow-auto">
+                                              {extraFileContents[fileKey] ? (
+                                                <pre className="text-xs font-mono text-gray-800 whitespace-pre-wrap break-words">
+                                                  {extraFileContents[fileKey]}
+                                                </pre>
+                                              ) : (
+                                                <div className="flex items-center justify-center py-4">
+                                                  <RefreshCw className="h-4 w-4 animate-spin text-gray-400" />
+                                                  <span className="ml-2 text-sm text-gray-500">Loading...</span>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </motion.div>
+                                        )}
+                                      </AnimatePresence>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
                         </motion.div>
                       )}
                     </AnimatePresence>

@@ -24,6 +24,7 @@ class WorkflowResultService:
         markdown_file_path: str,
         explanation: str = "",
         evidence: List[str] = None,
+        extra_files: List[str] = None,
     ) -> Dict[str, Any]:
         """
         Submit a workflow result for validation.
@@ -34,6 +35,8 @@ class WorkflowResultService:
             markdown_file_path: Path to the markdown file containing the result
             explanation: Brief explanation of what was accomplished
             evidence: List of evidence supporting completion
+            extra_files: List of additional file paths (e.g., patches, reproduction scripts)
+                        that validators can read for verification
 
         Returns:
             Dictionary containing result details and status
@@ -54,6 +57,36 @@ class WorkflowResultService:
 
         # Validate markdown format
         validate_markdown_format(markdown_file_path)
+
+        # Validate extra files if provided
+        validated_extra_files = []
+        if extra_files:
+            for file_path in extra_files:
+                try:
+                    # Convert to absolute path
+                    abs_path = os.path.abspath(file_path)
+
+                    # Validate path (security check)
+                    validate_file_path(abs_path)
+
+                    # Check file exists
+                    if not os.path.exists(abs_path):
+                        print(f"[Warning] Extra file not found, skipping: {file_path}")
+                        continue
+
+                    # Check it's actually a file
+                    if not os.path.isfile(abs_path):
+                        print(f"[Warning] Path is not a file, skipping: {file_path}")
+                        continue
+
+                    # Validate file size (10MB limit per extra file)
+                    validate_file_size(abs_path, max_size_kb=10240)
+
+                    validated_extra_files.append(abs_path)
+
+                except Exception as e:
+                    print(f"[Warning] Failed to validate extra file {file_path}: {e}")
+                    # Continue processing other files
 
         # Read markdown content
         with open(markdown_file_path, 'r', encoding='utf-8') as f:
@@ -91,6 +124,7 @@ class WorkflowResultService:
                 agent_id=agent_id,
                 result_file_path=markdown_file_path,
                 result_content=markdown_content,
+                extra_files=validated_extra_files,  # Store list of validated extra file paths
                 status="pending_validation",
                 created_at=datetime.utcnow(),
             )
@@ -104,6 +138,7 @@ class WorkflowResultService:
                 "workflow_id": workflow_id,
                 "agent_id": agent_id,
                 "validation_status": "pending_validation",
+                "extra_files_count": len(validated_extra_files),
                 "created_at": result.created_at.isoformat(),
             }
 
@@ -132,6 +167,7 @@ class WorkflowResultService:
                     "validated_at": result.validated_at.isoformat() if result.validated_at else None,
                     "validated_by_agent_id": result.validated_by_agent_id,
                     "result_file_path": result.result_file_path,
+                    "extra_files": result.extra_files or [],
                 }
                 for result in results
             ]
@@ -256,4 +292,5 @@ class WorkflowResultService:
                 "validated_by_agent_id": result.validated_by_agent_id,
                 "result_file_path": result.result_file_path,
                 "result_content": result.result_content,
+                "extra_files": result.extra_files or [],
             }

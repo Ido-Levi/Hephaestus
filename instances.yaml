@@ -1,0 +1,16 @@
+# SWEBench instances to run
+instances:
+  - psf__requests-1766
+  - psf__requests-5414
+  - astropy__astropy-7166
+  - astropy__astropy-7336
+  - django__django-11603
+  - django__django-11951
+  - django__django-12708
+  - django__django-13023
+  - astropy__astropy-12907
+  - astropy__astropy-13398
+  - astropy__astropy-8707
+  - astropy__astropy-7671
+  - pytest-dev__pytest-7490
+
