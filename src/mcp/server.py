@@ -4109,6 +4109,47 @@ async def list_tools():
                     "type": "object",
                     "properties": {}
                 }
+            },
+            {
+                "name": "create_ticket",
+                "description": "Create a new ticket in the Kanban board",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "title": {"type": "string", "description": "Ticket title"},
+                        "description": {"type": "string", "description": "Detailed description"},
+                        "ticket_type": {"type": "string", "enum": ["bug", "feature", "improvement", "task", "spike"], "description": "Type of ticket"},
+                        "priority": {"type": "string", "enum": ["low", "medium", "high", "critical"], "description": "Priority level"},
+                        "tags": {"type": "array", "items": {"type": "string"}, "description": "Tags for categorization"},
+                        "blocked_by_ticket_ids": {"type": "array", "items": {"type": "string"}, "description": "IDs of blocking tickets"}
+                    },
+                    "required": ["title", "description", "ticket_type", "priority"]
+                }
+            },
+            {
+                "name": "search_tickets",
+                "description": "Search for existing tickets by title or tags",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Search query for title"},
+                        "tags": {"type": "array", "items": {"type": "string"}, "description": "Filter by tags"},
+                        "status": {"type": "string", "description": "Filter by status"}
+                    },
+                    "required": []
+                }
+            },
+            {
+                "name": "update_ticket_status",
+                "description": "Update the status of a ticket",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "ticket_id": {"type": "string", "description": "Ticket ID"},
+                        "new_status": {"type": "string", "description": "New status value"}
+                    },
+                    "required": ["ticket_id", "new_status"]
+                }
             }
         ]
     }
@@ -4144,6 +4185,56 @@ async def execute_tool(request: Dict[str, Any]):
         )
     elif tool_name == "get_task_status":
         return await task_progress()
+    elif tool_name == "create_ticket":
+        # Create ticket using TicketService
+        from src.services.ticket_service import TicketService
+
+        # Get current workflow_id
+        session = server_state.db_manager.get_session()
+        try:
+            workflow = session.query(Workflow).filter(Workflow.status == "active").first()
+            if not workflow:
+                raise HTTPException(status_code=400, detail="No active workflow found")
+            workflow_id = workflow.id
+        finally:
+            session.close()
+
+        result = await TicketService.create_ticket(
+            workflow_id=workflow_id,
+            agent_id=arguments.get("agent_id", "mcp-claude"),
+            title=arguments.get("title"),
+            description=arguments.get("description"),
+            ticket_type=arguments.get("ticket_type"),
+            priority=arguments.get("priority"),
+            tags=arguments.get("tags", []),
+            blocked_by_ticket_ids=arguments.get("blocked_by_ticket_ids", [])
+        )
+        return {"success": True, "ticket": result}
+    elif tool_name == "search_tickets":
+        # Search tickets using TicketSearchService
+        from src.services.ticket_search_service import TicketSearchService
+
+        session = server_state.db_manager.get_session()
+        try:
+            search_service = TicketSearchService(session)
+            results = await search_service.search_tickets(
+                query=arguments.get("query"),
+                tags=arguments.get("tags"),
+                status=arguments.get("status")
+            )
+            return {"tickets": results}
+        finally:
+            session.close()
+    elif tool_name == "update_ticket_status":
+        # Update ticket status
+        from src.services.ticket_service import TicketService
+
+        result = await TicketService.change_ticket_status(
+            ticket_id=arguments.get("ticket_id"),
+            new_status=arguments.get("new_status"),
+            agent_id=arguments.get("agent_id", "mcp-claude")
+        )
+        return {"success": True, "result": result}
     else:
         raise HTTPException(status_code=400, detail=f"Unknown tool: {tool_name}")
 
