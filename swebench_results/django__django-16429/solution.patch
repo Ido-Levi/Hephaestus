@@ -1,0 +1,16 @@
+diff --git a/django/utils/timesince.py b/django/utils/timesince.py
+index e6d5b194ac..e6863aa267 100644
+--- a/django/utils/timesince.py
++++ b/django/utils/timesince.py
+@@ -103,7 +103,7 @@
+             pivot_year,
+             pivot_month,
+             min(MONTHS_DAYS[pivot_month - 1], d.day),
+             d.hour,
+             d.minute,
+             d.second,
+-            tzinfo=d.tzinfo,
++            tzinfo=d.tzinfo if hasattr(d, 'tzinfo') else None,
+         )
+     else:
+         pivot = d

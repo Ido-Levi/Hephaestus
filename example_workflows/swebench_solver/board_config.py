@@ -287,6 +287,7 @@ VALIDATION DECISION CRITERIA:
    - Evidence clearly demonstrates the fix works
 
 ❌ REJECT IMMEDIATELY if:
+   - `solution.patch` is missing!!!
    - 🚨 Patch modifies ANY test files (tests/, test/, *_test.py) - AUTOMATIC REJECTION!
    - Any test fails or shows regression
    - Requirements not fully addressed
@@ -347,6 +348,9 @@ REMEMBER: The goal is a production-ready patch that:
 5. **CONTAINS NO TEST MODIFICATIONS** (only source code changes)
 
 **BE THOROUGH AND STRICT - INVALID PATCHES WASTE EVERYONE'S TIME!**
+**MISSING solution.patch FILE = AUTOMATIC REJECTION!**
+**MISSING solution.patch FILE = AUTOMATIC REJECTION!**
+**MISSING solution.patch FILE = AUTOMATIC REJECTION!**
 
 🚨🚨🚨 COMMON MISTAKE TO AVOID 🚨🚨🚨
 Many validators only run the reproduction test and skip the full test suite!

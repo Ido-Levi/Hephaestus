@@ -1,0 +1,42 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index 850734709d..c4b9d68135 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -94,6 +94,37 @@ class SQLCompiler:
+         # refer some column outside of the wanted_cols, order_by, or even
+         # filter calls can alter the GROUP BY clause.
+ 
++        # Filter out Meta.ordering fields from order_by to prevent them from
++        # being included in GROUP BY clause. These fields will be removed from
++        # ORDER BY later in as_sql(), so they shouldn't affect GROUP BY.
++        if self._meta_ordering and order_by:
++            # Create a filtered order_by list that excludes Meta.ordering fields
++            filtered_order_by = []
++            for expr, (sql, params, is_ref) in order_by:
++                # Check if this expression corresponds to a Meta.ordering field
++                is_meta_ordering_field = False
++
++                # For simple field references, check if the field name matches
++                if hasattr(expr, 'field') and hasattr(expr.field, 'name'):
++                    if expr.field.name in self._meta_ordering:
++                        is_meta_ordering_field = True
++
++                # For more complex expressions, check the SQL representation
++                if not is_meta_ordering_field and sql:
++                    # Extract field name from SQL (simple heuristic)
++                    sql_upper = sql.upper()
++                    for ordering_field in self._meta_ordering:
++                        # Look for patterns like '"FIELDNAME"' or 'FIELDNAME'
++                        field_pattern_upper = f'"{ordering_field.upper()}"'
++                        if field_pattern_upper in sql_upper:
++                            is_meta_ordering_field = True
++                            break
++
++                # Only include in filtered_order_by if not a Meta.ordering field
++                if not is_meta_ordering_field:
++                    filtered_order_by.append((expr, (sql, params, is_ref)))
++            order_by = filtered_order_by
++
+         # The query.group_by is either None (no GROUP BY at all), True
+         # (group by select fields), or a list of expressions to be added
+         # to the group by.

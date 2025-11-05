@@ -1,0 +1,16 @@
+diff --git a/sympy/printing/pycode.py b/sympy/printing/pycode.py
+index b669a2c783..d90912c866 100644
+--- a/sympy/printing/pycode.py
++++ b/sympy/printing/pycode.py
+@@ -234,7 +234,10 @@ def _print_ComplexInfinity(self, expr):
+ 
+     def _print_Mod(self, expr):
+         PREC = precedence(expr)
+-        return ('{} % {}'.format(*map(lambda x: self.parenthesize(x, PREC), expr.args)))
++        a, b = map(lambda x: self.parenthesize(x, PREC), expr.args)
++        # Mathematical modulo: a mod b = a - b * floor(a / b)
++        # Python's // operator does floor division correctly for negative numbers
++        return '(({}) - ({}) * (({}) // ({})))'.format(a, b, a, b)
+ 
+     def _print_Piecewise(self, expr):
+         result = []

@@ -1,0 +1,23 @@
+diff --git a/django/db/models/expressions.py b/django/db/models/expressions.py
+index 822968ef56..f03d4e5823 100644
+--- a/django/db/models/expressions.py
++++ b/django/db/models/expressions.py
+@@ -1383,11 +1383,18 @@ class Case(SQLiteNumericMixin, Expression):
+         template_params = {**self.extra, **extra_context}
+         case_parts = []
+         sql_params = []
++        import re
+         for case in self.cases:
+             try:
+                 case_sql, case_params = compiler.compile(case)
+             except EmptyResultSet:
+                 continue
++            # Check if this case SQL has a valid condition
++            # The pattern should be "WHEN <condition> THEN <result>"
++            # If there's nothing between WHEN and THEN, it's invalid
++            if re.search(r'WHEN\s+THEN', case_sql):
++                # Skip cases with empty conditions
++                continue
+             case_parts.append(case_sql)
+             sql_params.extend(case_params)
+         default_sql, default_params = compiler.compile(self.default)

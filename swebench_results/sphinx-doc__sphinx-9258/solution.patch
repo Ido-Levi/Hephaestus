@@ -1,0 +1,50 @@
+diff --git a/sphinx/util/typing.py b/sphinx/util/typing.py
+index 4592886e6..23988a0a4 100644
+--- a/sphinx/util/typing.py
++++ b/sphinx/util/typing.py
+@@ -176,17 +176,17 @@ def _restify_py37(cls: Optional[Type]) -> str:
+             text += r"\ [%s]" % ", ".join(restify(a) for a in cls.__args__)
+ 
+         return text
+-    elif hasattr(cls, '__qualname__'):
+-        if cls.__module__ == 'typing':
+-            return ':class:`~%s.%s`' % (cls.__module__, cls.__qualname__)
+-        else:
+-            return ':class:`%s.%s`' % (cls.__module__, cls.__qualname__)
+     elif hasattr(cls, '_name'):
+         # SpecialForm
+         if cls.__module__ == 'typing':
+             return ':obj:`~%s.%s`' % (cls.__module__, cls._name)
+         else:
+             return ':obj:`%s.%s`' % (cls.__module__, cls._name)
++    elif hasattr(cls, '__qualname__'):
++        if cls.__module__ == 'typing':
++            return ':class:`~%s.%s`' % (cls.__module__, cls.__qualname__)
++        else:
++            return ':class:`%s.%s`' % (cls.__module__, cls.__qualname__)
+     elif isinstance(cls, ForwardRef):
+         return ':class:`%s`' % cls.__forward_arg__
+     else:
+@@ -264,17 +264,17 @@ def _restify_py36(cls: Optional[Type]) -> str:
+                 return ':obj:`~typing.Union`\\ [%s]' % param_str
+         else:
+             return ':obj:`Union`'
+-    elif hasattr(cls, '__qualname__'):
+-        if cls.__module__ == 'typing':
+-            return ':class:`~%s.%s`' % (cls.__module__, cls.__qualname__)
+-        else:
+-            return ':class:`%s.%s`' % (cls.__module__, cls.__qualname__)
+     elif hasattr(cls, '_name'):
+         # SpecialForm
+         if cls.__module__ == 'typing':
+             return ':obj:`~%s.%s`' % (cls.__module__, cls._name)
+         else:
+             return ':obj:`%s.%s`' % (cls.__module__, cls._name)
++    elif hasattr(cls, '__qualname__'):
++        if cls.__module__ == 'typing':
++            return ':class:`~%s.%s`' % (cls.__module__, cls.__qualname__)
++        else:
++            return ':class:`%s.%s`' % (cls.__module__, cls.__qualname__)
+     elif hasattr(cls, '__name__'):
+         # not a class (ex. TypeVar)
+         if cls.__module__ == 'typing':

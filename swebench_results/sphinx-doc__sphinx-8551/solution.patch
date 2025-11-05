@@ -1,0 +1,20 @@
+diff --git a/sphinx/domains/python.py b/sphinx/domains/python.py
+index 79d7e4f46..b480fdf45 100644
+--- a/sphinx/domains/python.py
++++ b/sphinx/domains/python.py
+@@ -1335,6 +1335,15 @@ class PythonDomain(Domain):
+                                              contnode, name)))
+         return results
+
++    def process_field_xref(self, pnode: pending_xref) -> None:
++        """Process a pending xref created in a doc field.
++
++        Adds current module and class context to make implicit xrefs behave
++        like explicit xrefs for consistent resolution.
++        """
++        pnode['py:module'] = self.env.ref_context.get('py:module')
++        pnode['py:class'] = self.env.ref_context.get('py:class')
++
+     def _make_module_refnode(self, builder: Builder, fromdocname: str, name: str,
+                              contnode: Node) -> Element:
+         # get additional info for modules

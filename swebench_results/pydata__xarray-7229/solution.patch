@@ -1,0 +1,65 @@
+diff --git a/xarray/core/computation.py b/xarray/core/computation.py
+index 3f7e8f74..3b916708 100644
+--- a/xarray/core/computation.py
++++ b/xarray/core/computation.py
+@@ -1857,13 +1857,35 @@ def where(cond, x, y, keep_attrs=None):
+     """
+     if keep_attrs is None:
+         keep_attrs = _get_keep_attrs(default=False)
+-    if keep_attrs is True:
++
++    # Preserve coordinate attributes from cond and x before calling apply_ufunc
++    # The key insight is that coordinate attributes should come from the original
++    # coordinate owner, not from the data variable x
++    original_coord_attrs = {}
++    should_preserve_coord_attrs = keep_attrs is True
++
++    if should_preserve_coord_attrs:
++        # Extract coordinate attributes from all inputs to preserve original coords
++        for input_obj in [cond, x, y]:
++            if hasattr(input_obj, 'coords'):
++                for coord_name, coord in input_obj.coords.items():
++                    if coord_name not in original_coord_attrs:
++                        # Preserve the original state - even if empty
++                        original_coord_attrs[coord_name] = getattr(coord, 'attrs', {}).copy()
++
++        # For Datasets, also preserve data variable attributes from x
++        original_data_var_attrs = {}
++        if hasattr(x, 'data_vars'):
++            for var_name, var in x.data_vars.items():
++                if hasattr(var, 'attrs') and var.attrs:
++                    original_data_var_attrs[var_name] = var.attrs.copy()
++
+         # keep the attributes of x, the second parameter, by default to
+         # be consistent with the `where` method of `DataArray` and `Dataset`
+         keep_attrs = lambda attrs, context: getattr(x, "attrs", {})
+ 
+     # alignment for three arguments is complicated, so don't support it yet
+-    return apply_ufunc(
++    result = apply_ufunc(
+         duck_array_ops.where,
+         cond,
+         x,
+@@ -1874,6 +1896,22 @@ def where(cond, x, y, keep_attrs=None):
+         keep_attrs=keep_attrs,
+     )
+ 
++    # If we preserved coordinate attributes, restore them to the result
++    if should_preserve_coord_attrs:
++        # Restore coordinate attributes
++        if original_coord_attrs and hasattr(result, 'coords'):
++            for coord_name, coord_attrs in original_coord_attrs.items():
++                if coord_name in result.coords:
++                    result.coords[coord_name].attrs = coord_attrs.copy()
++
++        # Restore data variable attributes for Datasets
++        if original_data_var_attrs and hasattr(result, 'data_vars'):
++            for var_name, var_attrs in original_data_var_attrs.items():
++                if var_name in result.data_vars:
++                    result.data_vars[var_name].attrs = var_attrs.copy()
++
++    return result
++
+ 
+ @overload
+ def polyval(

@@ -1,0 +1,52 @@
+diff --git a/django/core/validators.py b/django/core/validators.py
+index a385819510..352c077711 100644
+--- a/django/core/validators.py
++++ b/django/core/validators.py
+@@ -101,6 +101,10 @@ class URLValidator(RegexValidator):
+     def __call__(self, value):
+         if not isinstance(value, str):
+             raise ValidationError(self.message, code=self.code, params={'value': value})
++        # Phase 1: Check for dangerous ASCII control characters before any URL parsing
++        # These characters can be used for security exploits (header injection, SSRF)
++        if '\r' in value or '\n' in value or '\t' in value:
++            raise ValidationError(self.message, code=self.code, params={'value': value})
+         # Check if the scheme is valid.
+         scheme = value.split('://')[0].lower()
+         if scheme not in self.schemes:
+@@ -116,6 +120,10 @@ class URLValidator(RegexValidator):
+                     scheme, netloc, path, query, fragment = urlsplit(value)
+                 except ValueError:  # for example, "Invalid IPv6 URL"
+                     raise ValidationError(self.message, code=self.code, params={'value': value})
++                # Phase 2: Defense-in-depth - verify no dangerous characters in URL components
++                for component in [netloc, path, query, fragment]:
++                    if component and ('\r' in component or '\n' in component or '\t' in component):
++                        raise ValidationError(self.message, code=self.code, params={'value': value})
+                 try:
+                     netloc = punycode(netloc)  # IDN -> ACE
+                 except UnicodeError:  # invalid domain part
+@@ -126,7 +134,11 @@ class URLValidator(RegexValidator):
+                 raise
+         else:
+             # Now verify IPv6 in the netloc part
+-            host_match = re.search(r'^\[(.+)\](?::\d{2,5})?$', urlsplit(value).netloc)
++            try:
++                netloc = urlsplit(value).netloc
++            except ValueError:  # Invalid IPv6 URL
++                raise ValidationError(self.message, code=self.code, params={'value': value})
++            host_match = re.search(r'^\[(.+)\](?::\d{2,5})?$', netloc)
+             if host_match:
+                 potential_ip = host_match[1]
+                 try:
+@@ -138,7 +150,11 @@ class URLValidator(RegexValidator):
+         # section 3.1. It's defined to be 255 bytes or less, but this includes
+         # one byte for the length of the name and one byte for the trailing dot
+         # that's used to indicate absolute names in DNS.
+-        if len(urlsplit(value).hostname) > 253:
++        try:
++            hostname = urlsplit(value).hostname
++        except ValueError:  # Invalid IPv6 URL
++            raise ValidationError(self.message, code=self.code, params={'value': value})
++        if hostname and len(hostname) > 253:
+             raise ValidationError(self.message, code=self.code, params={'value': value})
+ 
+ 

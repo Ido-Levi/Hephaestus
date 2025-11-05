@@ -1,0 +1,69 @@
+diff --git a/src/_pytest/mark/expression.py b/src/_pytest/mark/expression.py
+index 04c73411a..7d2bd8bce 100644
+--- a/src/_pytest/mark/expression.py
++++ b/src/_pytest/mark/expression.py
+@@ -33,6 +33,29 @@ if TYPE_CHECKING:
+     from typing import NoReturn
+ 
+ 
++def create_safe_name_node(identifier: str, ctx: ast.expr_context = ast.Load(), pos: int = 0) -> ast.Name:
++    """Create a safe AST Name node that handles Python keywords.
++
++    This function creates a regular ast.Name node with a mangled identifier
++    if the original identifier is a Python keyword. The original identifier
++    is preserved as an attribute for use during evaluation.
++    """
++    if identifier in ("True", "False", "None"):
++        # Mangle the identifier to avoid Python compiler restrictions
++        mangled_id = f"_{identifier}"
++    else:
++        mangled_id = identifier
++
++    # Create a regular ast.Name node
++    node = ast.Name(id=mangled_id, ctx=ctx)
++
++    # Store the original identifier for use during evaluation
++    if identifier in ("True", "False", "None"):
++        node.original_id = identifier
++
++    return node
++
++
+ __all__ = [
+     "Expression",
+     "ParseError",
+@@ -161,7 +184,7 @@ def not_expr(s: Scanner) -> ast.expr:
+         return ret
+     ident = s.accept(TokenType.IDENT)
+     if ident:
+-        return ast.Name(ident.value, ast.Load())
++        return create_safe_name_node(ident.value, ast.Load(), ident.pos + 1)
+     s.reject((TokenType.NOT, TokenType.LPAREN, TokenType.IDENT))
+ 
+ 
+@@ -172,7 +195,13 @@ class MatcherAdapter(Mapping[str, bool]):
+         self.matcher = matcher
+ 
+     def __getitem__(self, key: str) -> bool:
+-        return self.matcher(key)
++        # If the key was mangled by SafeNameNode, demangle it back to the original
++        if key.startswith("_") and key[1:] in ("True", "False", "None"):
++            original_key = key[1:]  # Remove the underscore prefix
++        else:
++            original_key = key
++
++        return self.matcher(original_key)
+ 
+     def __iter__(self) -> Iterator[str]:
+         raise NotImplementedError()
+@@ -199,6 +228,10 @@ class Expression:
+         :param input: The input expression - one line.
+         """
+         astexpr = expression(Scanner(input))
++
++        # Ensure the AST has proper location information
++        ast.fix_missing_locations(astexpr)
++
+         code = compile(
+             astexpr, filename="<pytest match expression>", mode="eval",
+         )  # type: types.CodeType

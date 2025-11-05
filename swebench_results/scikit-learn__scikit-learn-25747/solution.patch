@@ -1,0 +1,28 @@
+diff --git a/sklearn/utils/_set_output.py b/sklearn/utils/_set_output.py
+index 335773c6af..7fa046245d 100644
+--- a/sklearn/utils/_set_output.py
++++ b/sklearn/utils/_set_output.py
+@@ -56,7 +56,22 @@ def _wrap_in_pandas_container(
+         if columns is not None:
+             data_to_wrap.columns = columns
+         if index is not None:
+-            data_to_wrap.index = index
++            # Only override index in safe and appropriate cases
++            if len(index) == len(data_to_wrap):
++                # Lengths match - but should we override?
++                # Check if data_to_wrap has a default RangeIndex
++                current_index = data_to_wrap.index
++                is_default_range = (
++                    isinstance(current_index, pd.RangeIndex) and
++                    current_index.start == 0 and
++                    current_index.step == 1 and
++                    current_index.stop == len(data_to_wrap)
++                )
++                if is_default_range:
++                    # Default index - safe and appropriate to override
++                    data_to_wrap.index = index
++                # else: transformer created intentional index - preserve it
++            # else: length mismatch - preserve transformer's index
+         return data_to_wrap
+ 
+     return pd.DataFrame(data_to_wrap, index=index, columns=columns)

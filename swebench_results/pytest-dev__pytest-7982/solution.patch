@@ -1,0 +1,69 @@
+diff --git a/src/_pytest/config/__init__.py b/src/_pytest/config/__init__.py
+index 7e486e99e..5ac04a8a8 100644
+--- a/src/_pytest/config/__init__.py
++++ b/src/_pytest/config/__init__.py
+@@ -1090,6 +1090,12 @@ class Config:
+             type="args",
+             default=[],
+         )
++        self._parser.addini(
++            "follow_symlinks",
++            "Whether to follow symlinks when collecting test directories",
++            type="bool",
++            default=True,
++        )
+         self._override_ini = ns.override_ini or ()
+ 
+     def _consider_importhook(self, args: Sequence[str]) -> None:
+diff --git a/src/_pytest/main.py b/src/_pytest/main.py
+index d8a208a1a..f083a331b 100644
+--- a/src/_pytest/main.py
++++ b/src/_pytest/main.py
+@@ -675,7 +675,7 @@ class Session(nodes.FSCollector):
+                 assert not names, "invalid arg {!r}".format((argpath, names))
+ 
+                 seen_dirs: Set[py.path.local] = set()
+-                for direntry in visit(str(argpath), self._recurse):
++                for direntry in visit(str(argpath), self._recurse, self.config.getini("follow_symlinks")):
+                     if not direntry.is_file():
+                         continue
+ 
+diff --git a/src/_pytest/pathlib.py b/src/_pytest/pathlib.py
+index f0bdb1481..57a5b1c19 100644
+--- a/src/_pytest/pathlib.py
++++ b/src/_pytest/pathlib.py
+@@ -549,7 +549,7 @@ def resolve_package_path(path: Path) -> Optional[Path]:
+ 
+ 
+ def visit(
+-    path: str, recurse: Callable[["os.DirEntry[str]"], bool]
++    path: str, recurse: Callable[["os.DirEntry[str]"], bool], follow_symlinks: bool = True
+ ) -> Iterator["os.DirEntry[str]"]:
+     """Walk a directory recursively, in breadth-first order.
+ 
+@@ -558,8 +558,10 @@ def visit(
+     entries = sorted(os.scandir(path), key=lambda entry: entry.name)
+     yield from entries
+     for entry in entries:
+-        if entry.is_dir(follow_symlinks=False) and recurse(entry):
+-            yield from visit(entry.path, recurse)
++        # Only recurse into directories that we can access
++        # When follow_symlinks=False, don't recurse into symlinks even if they point to directories
++        if entry.is_dir(follow_symlinks=follow_symlinks) and recurse(entry):
++            yield from visit(entry.path, recurse, follow_symlinks)
+ 
+ 
+ def absolutepath(path: Union[Path, str]) -> Path:
+diff --git a/src/_pytest/python.py b/src/_pytest/python.py
+index 35797cc07..02bec8200 100644
+--- a/src/_pytest/python.py
++++ b/src/_pytest/python.py
+@@ -705,7 +705,7 @@ class Package(Module):
+         ):
+             yield Module.from_parent(self, fspath=init_module)
+         pkg_prefixes: Set[py.path.local] = set()
+-        for direntry in visit(str(this_path), recurse=self._recurse):
++        for direntry in visit(str(this_path), recurse=self._recurse, follow_symlinks=self.config.getini("follow_symlinks")):
+             path = py.path.local(direntry.path)
+ 
+             # We will visit our own __init__.py file, in which case we skip it.

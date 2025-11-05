@@ -1,0 +1,16 @@
+diff --git a/sphinx/domains/python.py b/sphinx/domains/python.py
+index 000e2e8d3..ad6e6c121 100644
+--- a/sphinx/domains/python.py
++++ b/sphinx/domains/python.py
+@@ -1137,6 +1137,11 @@ class PythonDomain(Domain):
+ 
+         matches = []  # type: List[Tuple[str, ObjectEntry]]
+ 
++        # Disable fuzzy search for attributes and data.
++        # These are context-specific and shouldn't match across unrelated contexts.
++        if searchmode == 1 and type in ('attr', 'data'):
++            searchmode = 0
++
+         newname = None
+         if searchmode == 1:
+             if type is None:

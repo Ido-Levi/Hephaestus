@@ -1,16 +1,28 @@
-# SWEBench instances to run
 instances:
-  - psf__requests-1766
-  - psf__requests-5414
-  - astropy__astropy-7166
-  - astropy__astropy-7336
-  - django__django-11603
-  - django__django-11951
-  - django__django-12708
-  - django__django-13023
-  - astropy__astropy-12907
-  - astropy__astropy-13398
-  - astropy__astropy-8707
-  - astropy__astropy-7671
-  - pytest-dev__pytest-7490
-
+- astropy__astropy-13033
+- astropy__astropy-13398
+- astropy__astropy-14182
+- django__django-11133
+- django__django-11206
+- django__django-11951
+- django__django-12406
+- django__django-13089
+- django__django-13925
+- django__django-14122
+- django__django-15037
+#- django__django-15572
+#- django__django-15930
+#- matplotlib__matplotlib-25122
+#- matplotlib__matplotlib-25479
+#- psf__requests-1766
+#- psf__requests-1921
+#- pydata__xarray-6461
+#- pydata__xarray-7229
+#- pylint-dev__pylint-6386
+#- pytest-dev__pytest-7490
+#- scikit-learn__scikit-learn-12682
+#- sphinx-doc__sphinx-8638
+#- sphinx-doc__sphinx-9258
+#- sympy__sympy-19495
+#- sympy__sympy-19637
+#- sympy__sympy-22080

@@ -1,0 +1,47 @@
+From 7dbd07c7509b29f8acce62aa5061c04613e816c0 Mon Sep 17 00:00:00 2001
+From: Ido Levi <idol@ziprecruiter.com>
+Date: Tue, 4 Nov 2025 23:08:03 +0200
+Subject: [PATCH] [Agent 041a1008-9fbb-4b32-a004-db40a5845991] Checkpoint
+ before spawning child
+
+---
+ django/contrib/admin/views/autocomplete.py | 18 +++++++++++++++++-
+ 1 file changed, 17 insertions(+), 1 deletion(-)
+
+diff --git a/django/contrib/admin/views/autocomplete.py b/django/contrib/admin/views/autocomplete.py
+index 3903e4c98c..82313d9738 100644
+--- a/django/contrib/admin/views/autocomplete.py
++++ b/django/contrib/admin/views/autocomplete.py
+@@ -26,12 +26,28 @@ class AutocompleteJsonView(BaseListView):
+         context = self.get_context_data()
+         return JsonResponse({
+             'results': [
+-                {'id': str(getattr(obj, to_field_name)), 'text': str(obj)}
++                self.serialize_result(obj, to_field_name)
+                 for obj in context['object_list']
+             ],
+             'pagination': {'more': context['page_obj'].has_next()},
+         })
+ 
++    def serialize_result(self, obj, to_field_name):
++        """
++        Serialize an object for use in the autocomplete JSON response.
++
++        Args:
++            obj: The model instance to serialize
++            to_field_name: The field name to use for the 'id' value
++
++        Returns:
++            dict: A dictionary with 'id' and 'text' keys
++        """
++        return {
++            'id': str(getattr(obj, to_field_name)),
++            'text': str(obj),
++        }
++
+     def get_paginator(self, *args, **kwargs):
+         """Use the ModelAdmin's paginator."""
+         return self.model_admin.get_paginator(self.request, *args, **kwargs)
+-- 
+2.39.3 (Apple Git-146)
+

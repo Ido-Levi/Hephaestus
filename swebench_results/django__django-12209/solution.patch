@@ -1,0 +1,27 @@
+From 53ea9fa2f20379b69b826bf1dce056dcc6959bf0 Mon Sep 17 00:00:00 2001
+From: Ido Levi <idol@ziprecruiter.com>
+Date: Wed, 5 Nov 2025 00:34:35 +0200
+Subject: [PATCH] [Agent 46d02c60-69d3-4a50-8a65-1cb1d45999df] Checkpoint
+ before spawning child
+
+---
+ django/db/models/base.py | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+index e3b14a41a0..da16d7808e 100644
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -852,7 +852,8 @@ class Model(metaclass=ModelBase):
+             not force_insert and
+             self._state.adding and
+             self._meta.pk.default and
+-            self._meta.pk.default is not NOT_PROVIDED
++            self._meta.pk.default is not NOT_PROVIDED and
++            pk_val is None
+         ):
+             force_insert = True
+         # If possible, try an UPDATE. If that doesn't update anything, do an INSERT.
+-- 
+2.39.3 (Apple Git-146)
+

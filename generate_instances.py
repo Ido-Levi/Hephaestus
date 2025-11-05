@@ -50,8 +50,11 @@ def get_completed_instances(results_dir: Path) -> Set[str]:
     return completed
 
 
-def fetch_swebench_verified_instances() -> List[str]:
+def fetch_swebench_verified_instances(fast_eval: bool = False) -> List[str]:
     """Fetch all instance IDs from SWEBench-Verified dataset.
+
+    Args:
+        fast_eval: If True, only return instances with difficulty '<15 min fix'
 
     Returns:
         List of instance IDs
@@ -63,10 +66,19 @@ def fetch_swebench_verified_instances() -> List[str]:
         # Load the SWEBench-Verified dataset
         dataset = load_dataset("princeton-nlp/SWE-bench_Verified", split="test")
 
-        # Extract instance IDs
-        instance_ids = [item["instance_id"] for item in dataset]
+        # Filter by difficulty if fast_eval mode is enabled
+        if fast_eval:
+            print("[Info] Fast-eval mode: filtering for '<15 min fix' instances only")
+            instance_ids = [
+                item["instance_id"] for item in dataset
+                if item.get("difficulty") == "<15 min fix"
+            ]
+            print(f"[Info] Found {len(instance_ids)} fast instances (difficulty: '<15 min fix')")
+        else:
+            # Extract all instance IDs
+            instance_ids = [item["instance_id"] for item in dataset]
+            print(f"[Info] Successfully loaded {len(instance_ids)} instances from SWEBench-Verified")
 
-        print(f"[Info] Successfully loaded {len(instance_ids)} instances from SWEBench-Verified")
         return instance_ids
 
     except Exception as e:
@@ -78,7 +90,8 @@ def fetch_swebench_verified_instances() -> List[str]:
 def generate_instances_yaml(
     count: int,
     output_file: Path,
-    results_dir: Path
+    results_dir: Path,
+    fast_eval: bool = False
 ) -> None:
     """Generate instances.yaml with N uncompleted instances.
 
@@ -86,12 +99,13 @@ def generate_instances_yaml(
         count: Number of instances to include
         output_file: Path to output YAML file
         results_dir: Path to swebench_results directory
+        fast_eval: If True, only select instances with difficulty '<15 min fix'
     """
     # Get completed instances
     completed = get_completed_instances(results_dir)
 
     # Fetch all SWEBench-Verified instances
-    all_instances = fetch_swebench_verified_instances()
+    all_instances = fetch_swebench_verified_instances(fast_eval=fast_eval)
 
     # Filter out completed instances
     available_instances = [
@@ -153,6 +167,9 @@ Examples:
 
   # Generate 5 instances, specifying custom results directory
   python generate_instances.py --count 5 --results-dir ./custom_results
+
+  # Generate 10 fast-eval instances (difficulty: '<15 min fix')
+  python generate_instances.py --count 10 --fast-eval
         """
     )
 
@@ -173,6 +190,12 @@ Examples:
         "--results-dir",
         default="./swebench_results",
         help="Path to results directory (default: ./swebench_results)"
+    )
+
+    parser.add_argument(
+        "--fast-eval",
+        action="store_true",
+        help="Only select instances with difficulty '<15 min fix' for faster evaluation"
     )
 
     args = parser.parse_args()
@@ -201,7 +224,8 @@ Examples:
     generate_instances_yaml(
         count=args.count,
         output_file=output_file,
-        results_dir=results_dir
+        results_dir=results_dir,
+        fast_eval=args.fast_eval
     )
 
 

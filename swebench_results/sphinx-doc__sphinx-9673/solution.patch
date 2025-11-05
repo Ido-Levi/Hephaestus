@@ -1,0 +1,67 @@
+diff --git a/sphinx/ext/autodoc/typehints.py b/sphinx/ext/autodoc/typehints.py
+index af4b47bb0..d2d399649 100644
+--- a/sphinx/ext/autodoc/typehints.py
++++ b/sphinx/ext/autodoc/typehints.py
+@@ -20,6 +20,18 @@ from sphinx.application import Sphinx
+ from sphinx.util import inspect, typing
+ 
+ 
++# Field name aliases for normalization
++# Maps alternate spellings/casing to canonical field names
++FIELD_NAME_ALIASES = {
++    'returns': 'return',
++    'return': 'return',
++    'param': 'param',
++    'parameter': 'param',
++    'type': 'type',
++    'rtype': 'rtype',
++}
++
++
+ def record_typehints(app: Sphinx, objtype: str, name: str, obj: Any,
+                      options: Dict, args: str, retann: str) -> None:
+     """Record type hints to env object."""
+@@ -67,6 +79,25 @@ def merge_typehints(app: Sphinx, domain: str, objtype: str, contentnode: Element
+                 augment_descriptions_with_types(field_list, annotations[fullname])
+ 
+ 
++def _normalize_field_name(field_name: str) -> str:
++    """
++    Normalize field names to canonical forms.
++
++    Maps alternate spellings and casing to canonical field names.
++    For example, 'returns' -> 'return', 'parameter' -> 'param'.
++
++    Args:
++        field_name: The field name to normalize (e.g., 'returns', 'param')
++
++    Returns:
++        The canonical field name, or the original if not in the mapping
++    """
++    # Strip whitespace and convert to lowercase for lookup
++    cleaned = field_name.strip().lower()
++    # Look up in aliases, fallback to cleaned name if not found
++    return FIELD_NAME_ALIASES.get(cleaned, cleaned)
++
++
+ def insert_field_list(node: Element) -> nodes.field_list:
+     field_list = nodes.field_list()
+     desc = [n for n in node if isinstance(n, addnodes.desc)]
+@@ -86,6 +117,8 @@ def modify_field_list(node: nodes.field_list, annotations: Dict[str, str]) -> No
+     for field in fields:
+         field_name = field[0].astext()
+         parts = re.split(' +', field_name)
++        # Normalize field name to handle variations (e.g., 'returns' -> 'return')
++        parts[0] = _normalize_field_name(parts[0])
+         if parts[0] == 'param':
+             if len(parts) == 2:
+                 # :param xxx:
+@@ -137,6 +170,8 @@ def augment_descriptions_with_types(
+     for field in fields:
+         field_name = field[0].astext()
+         parts = re.split(' +', field_name)
++        # Normalize field name to handle variations (e.g., 'returns' -> 'return')
++        parts[0] = _normalize_field_name(parts[0])
+         if parts[0] == 'param':
+             if len(parts) == 2:
+                 # :param xxx:

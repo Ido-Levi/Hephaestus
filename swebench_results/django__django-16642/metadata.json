@@ -1,0 +1,11 @@
+{
+  "instance_id": "django__django-16642",
+  "start_time": "2025-11-05T11:00:05.341666",
+  "end_time": "2025-11-05T11:39:08.940221",
+  "duration_seconds": 2343.6,
+  "duration_minutes": 39.06,
+  "duration_hours": 0.65,
+  "status": "completed",
+  "result_id": "result-27c45a50-8dd8-4a4b-b94d-b2cca7bac880",
+  "validated_at": "2025-11-05T09:39:05.295657+00:00"
+}

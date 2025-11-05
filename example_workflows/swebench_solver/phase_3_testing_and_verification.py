@@ -386,10 +386,11 @@ mcp__hephaestus__submit_result({
     "extra_files": [
         "./solution.patch",
         "./reproduction_instructions.md"
-    ]  # NEW: Include patch and reproduction guide for independent validation
 })
 ```
 
+** DO NOT FORGET TO ADD solution.patch AS AN extra_file!!!**
+** WITHOUT solution.patch THE SOLUTION WOULD BE INCOMPLETE AND REJECTED! **
 **STEP 8A: MARK PHASE 3 TASK AS DONE**
 
 ```python

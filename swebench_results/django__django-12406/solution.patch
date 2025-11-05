@@ -1,0 +1,24 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 40ac1d3162..f1f74e8171 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -600,10 +600,15 @@ class ChoiceWidget(Widget):
+             groups.append((group_name, subgroup, index))
+ 
+             for subvalue, sublabel in choices:
+-                selected = (
+-                    str(subvalue) in value and
+-                    (not has_selected or self.allow_multiple_selected)
+-                )
++                # For RadioSelect widgets, never mark empty value as selected
++                # This prevents the blank option from being checked by default
++                if isinstance(self, RadioSelect) and subvalue == '':
++                    selected = False
++                else:
++                    selected = (
++                        str(subvalue) in value and
++                        (not has_selected or self.allow_multiple_selected)
++                    )
+                 has_selected |= selected
+                 subgroup.append(self.create_option(
+                     name, subvalue, sublabel, selected, index,

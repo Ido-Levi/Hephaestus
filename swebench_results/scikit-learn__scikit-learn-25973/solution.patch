@@ -1,0 +1,47 @@
+From 9ad1269e178c0ee660d9891483d5f8148d2100b3 Mon Sep 17 00:00:00 2001
+From: Ido Levi <idol@ziprecruiter.com>
+Date: Tue, 4 Nov 2025 23:35:37 +0200
+Subject: [PATCH] Fix SequentialFeatureSelector with iterable CV splits by
+ implementing iterator caching
+
+---
+ sklearn/model_selection/_split.py | 22 +++++++++++++++++++++-
+ 1 file changed, 21 insertions(+), 1 deletion(-)
+
+diff --git a/sklearn/model_selection/_split.py b/sklearn/model_selection/_split.py
+index dded962a35..a96eb5325b 100644
+--- a/sklearn/model_selection/_split.py
++++ b/sklearn/model_selection/_split.py
+@@ -2353,8 +2353,28 @@ class PredefinedSplit(BaseCrossValidator):
+ class _CVIterableWrapper(BaseCrossValidator):
+     """Wrapper class for old style cv objects and iterables."""
+ 
++    # Class-level cache to store materialized iterators
++    _iterator_cache = {}
++
+     def __init__(self, cv):
+-        self.cv = list(cv)
++        # Use id(cv) as a cache key to identify the same iterator
++        cv_id = id(cv)
++
++        if cv_id in _CVIterableWrapper._iterator_cache:
++            # Reuse cached materialized iterator
++            self.cv = _CVIterableWrapper._iterator_cache[cv_id]
++        else:
++            # Materialize and cache the iterator
++            self.cv = list(cv)
++            if len(self.cv) == 0:
++                raise ValueError(
++                    "The provided cv iterator appears to be exhausted or empty. "
++                    "This can happen when the same iterator is reused multiple times. "
++                    "Please convert your iterator to a list before passing it to cv, "
++                    "e.g., cv = list(your_cv_iterator)."
++                )
++            # Cache the materialized iterator for future use
++            _CVIterableWrapper._iterator_cache[cv_id] = self.cv
+ 
+     def get_n_splits(self, X=None, y=None, groups=None):
+         """Returns the number of splitting iterations in the cross-validator
+-- 
+2.39.3 (Apple Git-146)
+

@@ -1,0 +1,90 @@
+diff --git a/sympy/physics/units/unitsystem.py b/sympy/physics/units/unitsystem.py
+index b19084762d..b7c8cf5bdc 100644
+--- a/sympy/physics/units/unitsystem.py
++++ b/sympy/physics/units/unitsystem.py
+@@ -149,70 +149,7 @@ def get_dimensional_expr(self, expr):
+             return self.get_quantity_dimension(expr).name
+         return S.One
+ 
+-    def _compare_dimensions_equivalent(self, dim1, dim2):
+-        """
+-        Compare two dimensions for equivalence with enhanced error handling.
+-
+-        First tries strict equality for performance, then falls back to
+-        dimensional equivalence checking via equivalent_dims().
+-
+-        Parameters
+-        ==========
+-        dim1, dim2 : Dimension
+-            Dimensions to compare
+-
+-        Returns
+-        =======
+-        bool
+-            True if dimensions are equivalent, False otherwise
+-        """
+-        # Fast path: strict equality (most common case)
+-        if dim1 == dim2:
+-            return True
+-
+-        # Enhanced comparison: check dimensional equivalence
+-        try:
+-            return self.get_dimension_system().equivalent_dims(dim1, dim2)
+-        except (AttributeError, TypeError):
+-            # Fallback: if equivalent_dims is not available, use strict equality
+-            return dim1 == dim2
+-
+-    def _format_dimension_mismatch_error(self, addend, addend_dim, expected_dim):
+-        """
+-        Format a detailed dimension mismatch error message.
+-
+-        Parameters
+-        ==========
+-        addend : Expr
+-            The expression that caused the mismatch
+-        addend_dim : Dimension
+-            The actual dimension of the addend
+-        expected_dim : Dimension
+-            The expected dimension
+-
+-        Returns
+-        -------
+-        str
+-            Formatted error message with dimensional dependencies
+-        """
+-        try:
+-            # Get dimensional dependencies for debugging
+-            dim_deps_expected = self.get_dimension_system().get_dimensional_dependencies(expected_dim)
+-            dim_deps_actual = self.get_dimension_system().get_dimensional_dependencies(addend_dim)
+-
+-            error_msg = (
+-                'Dimension of "{}" is {}, but it should be {}\n'
+-                '  Expected dimensional dependencies: {}\n'
+-                '  Actual dimensional dependencies: {}'
+-            ).format(addend, addend_dim, expected_dim, dim_deps_expected, dim_deps_actual)
+-            return error_msg
+-        except (AttributeError, TypeError):
+-            # Fallback to simple error message if dimensional dependencies unavailable
+-            return (
+-                'Dimension of "{}" is {}, '
+-                'but it should be {}'.format(addend, addend_dim, expected_dim)
+-            )
+-
++  
+     def _collect_factor_and_dimension(self, expr):
+         """
+         Return tuple with scale factor expression and dimension expression.
+@@ -239,9 +176,11 @@ def _collect_factor_and_dimension(self, expr):
+             for addend in expr.args[1:]:
+                 addend_factor, addend_dim = \
+                     self._collect_factor_and_dimension(addend)
+-                if not self._compare_dimensions_equivalent(dim, addend_dim):
++                if not self.get_dimension_system().equivalent_dims(dim, addend_dim):
+                     raise ValueError(
+-                        self._format_dimension_mismatch_error(addend, addend_dim, dim))
++                        'Dimension of "{}" is {}, '
++                        'but it should be {}'.format(
++                            addend, addend_dim, dim))
+                 factor += addend_factor
+             return factor, dim
+         elif isinstance(expr, Derivative):
