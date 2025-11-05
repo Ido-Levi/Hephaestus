@@ -193,7 +193,7 @@ And **flexibility where you need it**:
 - **Docker** - For running Qdrant vector store
 - **Node.js & npm** - For the frontend UI
 - **Claude Code**, **OpenCode**, **Droid**, or **Codex** - CLI AI tool that agents run inside
-- **API Keys**: OpenAI, OpenRouter, or Anthropic
+- **API Keys**: OpenAI, OpenRouter, Anthropic (also supports: Azure OpenAI, Google AI Studio - see [LLM Configuration](https://ido-levi.github.io/Hephaestus/docs/getting-started/quick-start#llm-configuration))
 
 ### Validate Your Setup (macOS)
 

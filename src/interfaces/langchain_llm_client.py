@@ -7,8 +7,9 @@ import json
 import asyncio
 from abc import ABC, abstractmethod
 
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings, AzureChatOpenAI, AzureOpenAIEmbeddings
 from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.documents import Document
@@ -77,15 +78,54 @@ class LangChainLLMClient:
         """Initialize all configured models."""
         import os
 
-        # Initialize embedding model (always OpenAI)
-        openai_provider = self.config.providers.get("openai")
-        if openai_provider:
-            openai_key = os.getenv(openai_provider.api_key_env)
-            if openai_key:
-                self._embedding_model = OpenAIEmbeddings(
-                    model=self.config.embedding_model,
-                    openai_api_key=openai_key
-                )
+        # Initialize embedding model based on configured provider
+        embedding_provider = getattr(self.config, 'embedding_provider', 'openai')
+        logger.info(f"Initializing embedding model: {self.config.embedding_model} (provider: {embedding_provider})")
+
+        if embedding_provider == "openai":
+            openai_provider = self.config.providers.get("openai")
+            if openai_provider:
+                openai_key = os.getenv(openai_provider.api_key_env)
+                if openai_key:
+                    self._embedding_model = OpenAIEmbeddings(
+                        model=self.config.embedding_model,
+                        openai_api_key=openai_key
+                    )
+                    logger.info(f"  ✓ Embedding model initialized: OpenAI {self.config.embedding_model}")
+
+        elif embedding_provider == "azure_openai":
+            azure_provider = self.config.providers.get("azure_openai")
+            if azure_provider:
+                azure_key = os.getenv(azure_provider.api_key_env)
+                azure_endpoint = azure_provider.base_url
+                if azure_key and azure_endpoint:
+                    api_version = azure_provider.api_version or "2024-02-01"
+                    self._embedding_model = AzureOpenAIEmbeddings(
+                        model=self.config.embedding_model,
+                        azure_deployment=self.config.embedding_model,
+                        azure_endpoint=azure_endpoint,
+                        api_version=api_version,
+                        api_key=azure_key
+                    )
+                    logger.info(f"  ✓ Embedding model initialized: Azure OpenAI {self.config.embedding_model}")
+                else:
+                    logger.warning(f"Azure OpenAI embedding configuration incomplete (key or endpoint missing)")
+
+        elif embedding_provider == "google_ai":
+            google_provider = self.config.providers.get("google_ai")
+            if google_provider:
+                google_key = os.getenv(google_provider.api_key_env)
+                if google_key:
+                    self._embedding_model = GoogleGenerativeAIEmbeddings(
+                        model=self.config.embedding_model,  # e.g., "models/embedding-001"
+                        google_api_key=google_key
+                    )
+                    logger.info(f"  ✓ Embedding model initialized: Google AI {self.config.embedding_model}")
+                else:
+                    logger.warning(f"Google AI embedding configuration incomplete (key missing)")
+
+        if not self._embedding_model:
+            logger.warning(f"Embedding model not initialized for provider: {embedding_provider}")
 
         # Initialize models for each component
         logger.info(f"Configuring models for {len(self.config.model_assignments)} components:")
@@ -173,6 +213,38 @@ class LangChainLLMClient:
                         "X-Title": "Hephaestus Multi-Provider LLM"
                     },
                     model_kwargs=model_kwargs  # extra_body gets passed through to the API
+                )
+
+            elif provider == "azure_openai":
+                # Azure OpenAI uses deployment names (configured in Azure portal) instead of model names
+                # Requires azure_endpoint, api_version, and azure_deployment parameters
+                azure_endpoint = provider_config.base_url
+                if not azure_endpoint:
+                    logger.error(f"Azure OpenAI requires base_url (azure_endpoint) in configuration")
+                    return None
+
+                api_version = provider_config.api_version or "2024-02-01"
+                logger.info(f"Creating Azure OpenAI model with deployment: {assignment.model}, endpoint: {azure_endpoint}, api_version: {api_version}")
+
+                return AzureChatOpenAI(
+                    model=assignment.model,  # This is the deployment name in Azure
+                    azure_deployment=assignment.model,
+                    api_version=api_version,
+                    azure_endpoint=azure_endpoint,
+                    api_key=api_key,
+                    temperature=assignment.temperature,
+                    max_tokens=assignment.max_tokens
+                )
+
+            elif provider == "google_ai":
+                # Google AI Studio (Gemini) - simpler than Vertex AI, just needs API key
+                logger.info(f"Creating Google AI model: {assignment.model}")
+
+                return ChatGoogleGenerativeAI(
+                    model=assignment.model,  # e.g., "gemini-2.5-flash", "gemini-1.5-pro"
+                    google_api_key=api_key,
+                    temperature=assignment.temperature,
+                    max_tokens=assignment.max_tokens
                 )
 
             else:

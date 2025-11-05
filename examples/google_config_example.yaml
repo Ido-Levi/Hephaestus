@@ -1,0 +1,149 @@
+# Hephaestus Configuration Example: Google AI Studio (Gemini)
+# This example shows how to configure Hephaestus to use Google AI Studio exclusively
+
+# Server Configuration
+server:
+  host: "0.0.0.0"
+  port: 8000
+  enable_cors: true
+
+# Paths Configuration
+paths:
+  database: "./hephaestus.db"
+  phases_folder: "./example_workflows/crackme_solving"
+  worktree_base: "/tmp/hephaestus_worktrees"
+  project_root: "./your_project"
+
+# Git Configuration
+git:
+  main_repo_path: "./your_project"
+  worktree_branch_prefix: "agent-"
+  auto_commit: true
+  conflict_resolution: "newest_file_wins"
+
+# LLM Configuration - Google AI Studio Setup
+llm:
+  # Use Google AI embeddings
+  embedding_model: "models/embedding-001"  # Google's embedding model
+  embedding_provider: "google_ai"
+
+  # Default provider settings (for SDK workflows and legacy mode)
+  default_provider: "google_ai"
+  default_model: "gemini-2.5-flash"  # Fast and efficient Gemini model
+  default_temperature: 0.7
+  default_max_tokens: 4000
+
+  # Provider Configuration
+  providers:
+    # Google AI Studio Configuration
+    # IMPORTANT:
+    # 1. Get your API key from https://ai.google.dev/gemini-api/docs/api-key
+    # 2. Set GOOGLE_API_KEY in your .env file
+    # 3. No additional configuration needed - just the API key!
+    google_ai:
+      api_key_env: "GOOGLE_API_KEY"
+      models:
+        - "gemini-2.5-flash"       # Fast, efficient model for most tasks
+        - "gemini-2.5-flash-lite"  # Even faster, lighter model
+        - "gemini-1.5-pro"         # More capable model for complex tasks
+        - "models/embedding-001"   # Google's embedding model
+
+  # Model Assignment Per Component
+  # Each system component can use a different Gemini model
+  model_assignments:
+    # Task enrichment - analyzing and expanding task descriptions
+    task_enrichment:
+      provider: "google_ai"
+      model: "gemini-2.5-flash"  # Fast model for quick analysis
+      temperature: 0.7
+      max_tokens: 4000
+
+    # Agent monitoring - tracking agent health and progress
+    agent_monitoring:
+      provider: "google_ai"
+      model: "gemini-2.5-flash-lite"  # Lighter model for frequent checks
+      temperature: 0.3
+      max_tokens: 2000
+
+    # Guardian analysis - deep analysis of agent trajectories
+    guardian_analysis:
+      provider: "google_ai"
+      model: "gemini-1.5-pro"  # More capable model for sophisticated analysis
+      temperature: 0.5
+      max_tokens: 8000
+
+    # Conductor analysis - system-wide coherence checks
+    conductor_analysis:
+      provider: "google_ai"
+      model: "gemini-1.5-pro"  # Use powerful model for system analysis
+      temperature: 0.4
+      max_tokens: 4000
+
+    # Agent prompts - generating prompts for agents
+    agent_prompts:
+      provider: "google_ai"
+      model: "gemini-2.5-flash"
+      temperature: 0.8  # Higher temperature for creative prompt generation
+      max_tokens: 4000
+
+# Agent Configuration
+agents:
+  default_cli_tool: "claude"
+  cli_model: "sonnet"
+  tmux_session_prefix: "agent"
+  health_check_interval: 60
+  max_health_failures: 3
+  termination_delay: 5
+
+# Vector Store Configuration
+vector_store:
+  qdrant_url: "http://localhost:6333"
+  collection_prefix: "hephaestus"
+  embedding_dimension: 768  # Google's embedding-001 uses 768 dimensions
+
+# Monitoring Configuration
+monitoring:
+  enabled: true
+  interval_seconds: 60
+  log_level: "INFO"
+  log_format: "json"
+  stuck_agent_threshold: 300
+  guardian_min_agent_age_seconds: 60
+
+# MCP Server Configuration
+mcp:
+  auth_required: false
+  session_timeout: 3600
+  max_concurrent_agents: 6
+
+# Task Deduplication Configuration
+task_deduplication:
+  enabled: true
+  similarity_threshold: 0.999
+  related_threshold: 0.5
+  embedding_model: "models/embedding-001"  # Google's embedding model
+  embedding_dimension: 768  # Google embeddings use 768 dimensions
+  batch_size: 100  # Google AI supports batches up to 100
+
+# Diagnostic Agent Configuration
+diagnostic_agent:
+  enabled: false
+  cooldown_seconds: 60
+  min_stuck_time_seconds: 60
+  max_agents_to_analyze: 15
+  max_conductor_analyses: 5
+  max_tasks_per_run: 5
+
+# Ticket Tracking Configuration
+ticket_tracking:
+  enabled: true
+  embedding:
+    model: "models/embedding-001"  # Google's embedding model
+    dimensions: 768
+    provider: "google_ai"
+
+# NOTES:
+# - Google AI Studio is free for moderate use with rate limits
+# - Gemini models support multimodal inputs (text, images, audio, video)
+# - Consider Gemini 1.5 Pro for tasks requiring large context windows
+# - Flash models are optimized for speed and cost-effectiveness

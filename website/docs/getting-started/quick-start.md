@@ -125,6 +125,58 @@ llm:
 - `gpt-5` (OpenAI) - Strong reasoning, higher cost
 - `gpt-5-mini` (OpenAI) - Faster, cheaper alternative
 
+### Alternative: Azure OpenAI (For Business Users)
+
+For enterprises with Azure subscriptions:
+
+```yaml
+llm:
+  embedding_provider: "azure_openai"
+  providers:
+    azure_openai:
+      api_key_env: "AZURE_OPENAI_API_KEY"
+      base_url: "https://YOUR-RESOURCE.openai.azure.com"
+      api_version: "2024-02-01"
+  model_assignments:
+    task_enrichment:
+      provider: "azure_openai"
+      model: "gpt-4"  # Your deployment name from Azure portal
+```
+
+**Required API Keys**:
+```bash
+# .env file
+AZURE_OPENAI_API_KEY=your-azure-key
+```
+
+**Important**: Use deployment names (configured in Azure portal), not model names!
+See [examples/azure_config_example.yaml](https://github.com/Ido-Levi/Hephaestus/blob/main/examples/azure_config_example.yaml) for complete configuration.
+
+### Alternative: Google AI Studio (Gemini)
+
+For Google Gemini models with simple API key setup:
+
+```yaml
+llm:
+  embedding_provider: "google_ai"
+  providers:
+    google_ai:
+      api_key_env: "GOOGLE_API_KEY"
+  model_assignments:
+    task_enrichment:
+      provider: "google_ai"
+      model: "gemini-2.5-flash"
+```
+
+**Required API Keys**:
+```bash
+# .env file
+GOOGLE_API_KEY=your-google-key
+```
+
+Get your API key from [https://ai.google.dev/](https://ai.google.dev/gemini-api/docs/api-key).
+See [examples/google_config_example.yaml](https://github.com/Ido-Levi/Hephaestus/blob/main/examples/google_config_example.yaml) for complete configuration.
+
 ### Agent CLI Configuration
 
 Agents run inside a CLI AI tool. Choose which CLI tool to use:

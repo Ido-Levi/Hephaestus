@@ -385,3 +385,267 @@ class TestMultiProviderLLM:
 
             model_name = llm.get_model_for_component("task_enrichment")
             assert model_name == "test-model"
+
+
+class TestAzureOpenAIProvider:
+    """Test Azure OpenAI provider integration."""
+
+    def test_azure_openai_config_parsing(self, tmp_path):
+        """Test Azure OpenAI configuration parsing."""
+        config_file = tmp_path / "azure_config.yaml"
+        config_file.write_text("""
+llm:
+  embedding_model: "text-embedding-3-large"
+  embedding_provider: "azure_openai"
+  providers:
+    azure_openai:
+      api_key_env: "AZURE_OPENAI_API_KEY"
+      base_url: "https://test-resource.openai.azure.com"
+      api_version: "2024-02-01"
+      models:
+        - "gpt-4"
+        - "gpt-35-turbo"
+  model_assignments:
+    task_enrichment:
+      provider: "azure_openai"
+      model: "gpt-4"
+      temperature: 0.7
+      max_tokens: 4000
+""")
+
+        config = SimpleConfig(str(config_file))
+        llm_config = config.get_llm_config()
+
+        assert "azure_openai" in llm_config.providers
+        azure_config = llm_config.providers["azure_openai"]
+        assert azure_config.api_key_env == "AZURE_OPENAI_API_KEY"
+        assert azure_config.base_url == "https://test-resource.openai.azure.com"
+        assert azure_config.api_version == "2024-02-01"
+        assert "gpt-4" in azure_config.models
+        assert llm_config.embedding_provider == "azure_openai"
+
+    @patch.dict(os.environ, {"AZURE_OPENAI_API_KEY": "test-azure-key"})
+    @patch('src.interfaces.langchain_llm_client.AzureChatOpenAI')
+    def test_azure_model_initialization(self, mock_azure_chat, tmp_path):
+        """Test Azure OpenAI model initialization with correct parameters."""
+        config_file = tmp_path / "azure_config.yaml"
+        config_file.write_text("""
+llm:
+  providers:
+    azure_openai:
+      api_key_env: "AZURE_OPENAI_API_KEY"
+      base_url: "https://test-resource.openai.azure.com"
+      api_version: "2024-02-01"
+      models: ["gpt-4"]
+  model_assignments:
+    task_enrichment:
+      provider: "azure_openai"
+      model: "gpt-4"
+      temperature: 0.7
+      max_tokens: 2000
+""")
+
+        config = SimpleConfig(str(config_file))
+        client = LangChainLLMClient(config.get_llm_config())
+
+        # Verify AzureChatOpenAI was called with correct parameters
+        assert mock_azure_chat.called
+        call_kwargs = mock_azure_chat.call_args.kwargs
+        assert call_kwargs['model'] == "gpt-4"
+        assert call_kwargs['azure_deployment'] == "gpt-4"
+        assert call_kwargs['api_version'] == "2024-02-01"
+        assert call_kwargs['azure_endpoint'] == "https://test-resource.openai.azure.com"
+        assert call_kwargs['temperature'] == 0.7
+        assert call_kwargs['max_tokens'] == 2000
+
+    @patch.dict(os.environ, {"AZURE_OPENAI_API_KEY": "test-azure-key"})
+    @patch('src.interfaces.langchain_llm_client.AzureOpenAIEmbeddings')
+    def test_azure_embeddings_initialization(self, mock_azure_embeddings, tmp_path):
+        """Test Azure OpenAI embeddings initialization."""
+        config_file = tmp_path / "azure_config.yaml"
+        config_file.write_text("""
+llm:
+  embedding_model: "text-embedding-3-large"
+  embedding_provider: "azure_openai"
+  providers:
+    azure_openai:
+      api_key_env: "AZURE_OPENAI_API_KEY"
+      base_url: "https://test-resource.openai.azure.com"
+      api_version: "2024-02-01"
+      models: ["text-embedding-3-large"]
+""")
+
+        config = SimpleConfig(str(config_file))
+        client = LangChainLLMClient(config.get_llm_config())
+
+        # Verify AzureOpenAIEmbeddings was called
+        assert mock_azure_embeddings.called
+        call_kwargs = mock_azure_embeddings.call_args.kwargs
+        assert call_kwargs['model'] == "text-embedding-3-large"
+        assert call_kwargs['azure_deployment'] == "text-embedding-3-large"
+        assert call_kwargs['azure_endpoint'] == "https://test-resource.openai.azure.com"
+        assert call_kwargs['api_version'] == "2024-02-01"
+
+
+class TestGoogleAIProvider:
+    """Test Google AI Studio provider integration."""
+
+    def test_google_ai_config_parsing(self, tmp_path):
+        """Test Google AI configuration parsing."""
+        config_file = tmp_path / "google_config.yaml"
+        config_file.write_text("""
+llm:
+  embedding_model: "models/embedding-001"
+  embedding_provider: "google_ai"
+  providers:
+    google_ai:
+      api_key_env: "GOOGLE_API_KEY"
+      models:
+        - "gemini-2.5-flash"
+        - "gemini-1.5-pro"
+  model_assignments:
+    task_enrichment:
+      provider: "google_ai"
+      model: "gemini-2.5-flash"
+      temperature: 0.7
+      max_tokens: 4000
+""")
+
+        config = SimpleConfig(str(config_file))
+        llm_config = config.get_llm_config()
+
+        assert "google_ai" in llm_config.providers
+        google_config = llm_config.providers["google_ai"]
+        assert google_config.api_key_env == "GOOGLE_API_KEY"
+        assert "gemini-2.5-flash" in google_config.models
+        assert llm_config.embedding_provider == "google_ai"
+        assert llm_config.embedding_model == "models/embedding-001"
+
+    @patch.dict(os.environ, {"GOOGLE_API_KEY": "test-google-key"})
+    @patch('src.interfaces.langchain_llm_client.ChatGoogleGenerativeAI')
+    def test_google_model_initialization(self, mock_google_chat, tmp_path):
+        """Test Google AI model initialization with correct parameters."""
+        config_file = tmp_path / "google_config.yaml"
+        config_file.write_text("""
+llm:
+  providers:
+    google_ai:
+      api_key_env: "GOOGLE_API_KEY"
+      models: ["gemini-2.5-flash"]
+  model_assignments:
+    task_enrichment:
+      provider: "google_ai"
+      model: "gemini-2.5-flash"
+      temperature: 0.7
+      max_tokens: 2000
+""")
+
+        config = SimpleConfig(str(config_file))
+        client = LangChainLLMClient(config.get_llm_config())
+
+        # Verify ChatGoogleGenerativeAI was called with correct parameters
+        assert mock_google_chat.called
+        call_kwargs = mock_google_chat.call_args.kwargs
+        assert call_kwargs['model'] == "gemini-2.5-flash"
+        assert call_kwargs['google_api_key'] == "test-google-key"
+        assert call_kwargs['temperature'] == 0.7
+        assert call_kwargs['max_tokens'] == 2000
+
+    @patch.dict(os.environ, {"GOOGLE_API_KEY": "test-google-key"})
+    @patch('src.interfaces.langchain_llm_client.GoogleGenerativeAIEmbeddings')
+    def test_google_embeddings_initialization(self, mock_google_embeddings, tmp_path):
+        """Test Google AI embeddings initialization."""
+        config_file = tmp_path / "google_config.yaml"
+        config_file.write_text("""
+llm:
+  embedding_model: "models/embedding-001"
+  embedding_provider: "google_ai"
+  providers:
+    google_ai:
+      api_key_env: "GOOGLE_API_KEY"
+      models: ["models/embedding-001"]
+""")
+
+        config = SimpleConfig(str(config_file))
+        client = LangChainLLMClient(config.get_llm_config())
+
+        # Verify GoogleGenerativeAIEmbeddings was called
+        assert mock_google_embeddings.called
+        call_kwargs = mock_google_embeddings.call_args.kwargs
+        assert call_kwargs['model'] == "models/embedding-001"
+        assert call_kwargs['google_api_key'] == "test-google-key"
+
+
+class TestMultiProviderIntegration:
+    """Test multi-provider integration scenarios."""
+
+    @patch.dict(os.environ, {
+        "AZURE_OPENAI_API_KEY": "azure-key",
+        "GOOGLE_API_KEY": "google-key",
+        "OPENAI_API_KEY": "openai-key"
+    })
+    @patch('src.interfaces.langchain_llm_client.AzureChatOpenAI')
+    @patch('src.interfaces.langchain_llm_client.ChatGoogleGenerativeAI')
+    @patch('src.interfaces.langchain_llm_client.OpenAIEmbeddings')
+    def test_mixed_provider_routing(self, mock_openai_emb, mock_google, mock_azure, tmp_path):
+        """Test that different components can use different providers simultaneously."""
+        config_file = tmp_path / "mixed_config.yaml"
+        config_file.write_text("""
+llm:
+  embedding_model: "text-embedding-3-small"
+  embedding_provider: "openai"
+  providers:
+    openai:
+      api_key_env: "OPENAI_API_KEY"
+    azure_openai:
+      api_key_env: "AZURE_OPENAI_API_KEY"
+      base_url: "https://test.openai.azure.com"
+      api_version: "2024-02-01"
+    google_ai:
+      api_key_env: "GOOGLE_API_KEY"
+  model_assignments:
+    task_enrichment:
+      provider: "azure_openai"
+      model: "gpt-4"
+      temperature: 0.7
+      max_tokens: 4000
+    guardian_analysis:
+      provider: "google_ai"
+      model: "gemini-2.5-flash"
+      temperature: 0.5
+      max_tokens: 8000
+""")
+
+        config = SimpleConfig(str(config_file))
+        client = LangChainLLMClient(config.get_llm_config())
+
+        # Verify both chat providers were initialized
+        assert mock_azure.called
+        assert mock_google.called
+        # Verify OpenAI embeddings was used
+        assert mock_openai_emb.called
+
+    def test_graceful_fallback_missing_keys(self, tmp_path, caplog):
+        """Test system continues gracefully when provider keys are missing."""
+        config_file = tmp_path / "missing_keys_config.yaml"
+        config_file.write_text("""
+llm:
+  providers:
+    azure_openai:
+      api_key_env: "NONEXISTENT_AZURE_KEY"
+      base_url: "https://test.openai.azure.com"
+      api_version: "2024-02-01"
+    google_ai:
+      api_key_env: "NONEXISTENT_GOOGLE_KEY"
+  model_assignments:
+    task_enrichment:
+      provider: "azure_openai"
+      model: "gpt-4"
+""")
+
+        # Should not crash, just log warnings
+        config = SimpleConfig(str(config_file))
+        config.validate(strict=False)
+
+        # Check warnings were logged
+        assert "Some API keys are missing" in caplog.text or "API key not found" in caplog.text

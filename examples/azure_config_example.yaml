@@ -1,0 +1,144 @@
+# Hephaestus Configuration Example: Azure OpenAI
+# This example shows how to configure Hephaestus to use Azure OpenAI exclusively
+
+# Server Configuration
+server:
+  host: "0.0.0.0"
+  port: 8000
+  enable_cors: true
+
+# Paths Configuration
+paths:
+  database: "./hephaestus.db"
+  phases_folder: "./example_workflows/crackme_solving"
+  worktree_base: "/tmp/hephaestus_worktrees"
+  project_root: "./your_project"
+
+# Git Configuration
+git:
+  main_repo_path: "./your_project"
+  worktree_branch_prefix: "agent-"
+  auto_commit: true
+  conflict_resolution: "newest_file_wins"
+
+# LLM Configuration - Azure OpenAI Setup
+llm:
+  # Use Azure OpenAI for embeddings
+  embedding_model: "text-embedding-3-large"  # This is your deployment name in Azure
+  embedding_provider: "azure_openai"
+
+  # Default provider settings (for SDK workflows and legacy mode)
+  default_provider: "azure_openai"
+  default_model: "gpt-4"  # Your Azure deployment name
+  default_temperature: 0.7
+  default_max_tokens: 4000
+
+  # Provider Configuration
+  providers:
+    # Azure OpenAI Configuration
+    # IMPORTANT:
+    # 1. Set AZURE_OPENAI_API_KEY in your .env file
+    # 2. Replace YOUR-RESOURCE-NAME with your actual Azure resource name
+    # 3. Use deployment names (from Azure portal) not model names!
+    azure_openai:
+      api_key_env: "AZURE_OPENAI_API_KEY"
+      base_url: "https://YOUR-RESOURCE-NAME.openai.azure.com"  # Replace with your endpoint
+      api_version: "2024-02-01"  # Latest stable API version
+      models:
+        - "gpt-4"                # Your GPT-4 deployment name
+        - "gpt-35-turbo"         # Your GPT-3.5 deployment name
+        - "text-embedding-3-large"  # Your embedding deployment name
+
+  # Model Assignment Per Component
+  # Each system component can use a different model from Azure
+  model_assignments:
+    # Task enrichment - analyzing and expanding task descriptions
+    task_enrichment:
+      provider: "azure_openai"
+      model: "gpt-4"  # Use your GPT-4 deployment for complex analysis
+      temperature: 0.7
+      max_tokens: 4000
+
+    # Agent monitoring - tracking agent health and progress
+    agent_monitoring:
+      provider: "azure_openai"
+      model: "gpt-35-turbo"  # Lighter model for frequent checks
+      temperature: 0.3
+      max_tokens: 2000
+
+    # Guardian analysis - deep analysis of agent trajectories
+    guardian_analysis:
+      provider: "azure_openai"
+      model: "gpt-4"  # Use GPT-4 for sophisticated analysis
+      temperature: 0.5
+      max_tokens: 8000
+
+    # Conductor analysis - system-wide coherence checks
+    conductor_analysis:
+      provider: "azure_openai"
+      model: "gpt-4"
+      temperature: 0.4
+      max_tokens: 4000
+
+    # Agent prompts - generating prompts for agents
+    agent_prompts:
+      provider: "azure_openai"
+      model: "gpt-4"
+      temperature: 0.8
+      max_tokens: 4000
+
+# Agent Configuration
+agents:
+  default_cli_tool: "claude"
+  cli_model: "sonnet"
+  tmux_session_prefix: "agent"
+  health_check_interval: 60
+  max_health_failures: 3
+  termination_delay: 5
+
+# Vector Store Configuration
+vector_store:
+  qdrant_url: "http://localhost:6333"
+  collection_prefix: "hephaestus"
+  embedding_dimension: 3072  # For text-embedding-3-large
+
+# Monitoring Configuration
+monitoring:
+  enabled: true
+  interval_seconds: 60
+  log_level: "INFO"
+  log_format: "json"
+  stuck_agent_threshold: 300
+  guardian_min_agent_age_seconds: 60
+
+# MCP Server Configuration
+mcp:
+  auth_required: false
+  session_timeout: 3600
+  max_concurrent_agents: 6
+
+# Task Deduplication Configuration
+task_deduplication:
+  enabled: true
+  similarity_threshold: 0.999
+  related_threshold: 0.5
+  embedding_model: "text-embedding-3-large"  # Your Azure deployment name
+  embedding_dimension: 3072
+  batch_size: 100
+
+# Diagnostic Agent Configuration
+diagnostic_agent:
+  enabled: false
+  cooldown_seconds: 60
+  min_stuck_time_seconds: 60
+  max_agents_to_analyze: 15
+  max_conductor_analyses: 5
+  max_tasks_per_run: 5
+
+# Ticket Tracking Configuration
+ticket_tracking:
+  enabled: true
+  embedding:
+    model: "text-embedding-3-large"  # Your Azure deployment name
+    dimensions: 3072
+    provider: "azure_openai"
