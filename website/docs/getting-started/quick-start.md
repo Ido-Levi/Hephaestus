@@ -520,7 +520,7 @@ npm install  # First time only
 npm run dev
 
 # Terminal 3: Run your workflow
-python run_bug_fix.py
+python run_example.py --path /tmp/test_prd --drop-db
 ```
 
 **Note**: The SDK automatically starts the Hephaestus server - you don't need to run `run_server.py` separately!
