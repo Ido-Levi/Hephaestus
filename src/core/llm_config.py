@@ -20,6 +20,11 @@ class ProviderConfig(BaseModel):
     api_key_env: str
     base_url: Optional[str] = None
     models: List[Union[str, Dict[str, str]]]
+    # Azure-specific fields
+    api_version: Optional[str] = None  # For Azure OpenAI (e.g., "2024-02-01")
+    # Google Vertex AI-specific fields (for future use)
+    project_id: Optional[str] = None
+    location: Optional[str] = None  # e.g., "us-central1"
 
 
 class ModelAssignment(BaseModel):
@@ -35,7 +40,11 @@ class MultiProviderLLMConfig(BaseModel):
     """Multi-provider LLM configuration."""
     embedding_model: str = Field(
         default="text-embedding-3-small",
-        description="OpenAI embedding model to use"
+        description="Embedding model to use"
+    )
+    embedding_provider: str = Field(
+        default="openai",
+        description="Provider for embeddings (openai, azure_openai, google_ai)"
     )
     providers: Dict[str, ProviderConfig] = Field(
         default_factory=dict,
@@ -88,7 +97,10 @@ class SimpleConfig:
                     providers[provider_name] = ProviderConfig(
                         api_key_env=provider_data.get('api_key_env', f"{provider_name.upper()}_API_KEY"),
                         base_url=provider_data.get('base_url'),
-                        models=models
+                        models=models,
+                        api_version=provider_data.get('api_version'),
+                        project_id=provider_data.get('project_id'),
+                        location=provider_data.get('location')
                     )
 
             # Convert model assignments
@@ -99,6 +111,7 @@ class SimpleConfig:
 
             self._llm_config = MultiProviderLLMConfig(
                 embedding_model=llm_data.get('embedding_model', 'text-embedding-3-small'),
+                embedding_provider=llm_data.get('embedding_provider', 'openai'),
                 providers=providers,
                 model_assignments=model_assignments
             )
@@ -221,6 +234,10 @@ class SimpleConfig:
             return os.getenv('GROQ_API_KEY')
         elif provider == 'openrouter':
             return os.getenv('OPENROUTER_API_KEY')
+        elif provider == 'azure_openai':
+            return os.getenv('AZURE_OPENAI_API_KEY')
+        elif provider == 'google_ai':
+            return os.getenv('GOOGLE_API_KEY')
 
         return None
 

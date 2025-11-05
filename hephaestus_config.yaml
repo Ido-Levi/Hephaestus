@@ -23,8 +23,9 @@ git:
 
 # LLM Configuration
 llm:
-  # Keep OpenAI embeddings as requested
+  # Embedding configuration
   embedding_model: "text-embedding-3-large"
+  embedding_provider: "openai"  # Can be: openai, azure_openai, google_ai
 
   # Used by: SDK workflows, legacy single-provider mode, and when multi-provider config is unavailable
   # This replaces the deprecated LLM_MODEL env variable
@@ -47,7 +48,28 @@ llm:
     groq:
       api_key_env: "GROQ_API_KEY"
 
+    # Azure OpenAI - For business users with Azure subscriptions
+    # Uncomment and configure if you want to use Azure OpenAI:
+    # azure_openai:
+    #   api_key_env: "AZURE_OPENAI_API_KEY"
+    #   base_url: "https://YOUR-RESOURCE-NAME.openai.azure.com"  # Replace with your Azure endpoint
+    #   api_version: "2024-02-01"
+    #   models:
+    #     - "gpt-4"           # Your deployment names (not model names!)
+    #     - "gpt-35-turbo"    # These must match your Azure portal deployments
+    #     - "text-embedding-3-large"
+
+    # Google AI Studio - For Google Gemini models
+    # Uncomment and configure if you want to use Google AI Studio:
+    # google_ai:
+    #   api_key_env: "GOOGLE_API_KEY"
+    #   models:
+    #     - "gemini-2.5-flash"      # Fast, efficient Gemini model
+    #     - "gemini-1.5-pro"        # More capable Gemini model
+    #     - "models/embedding-001"  # Google embedding model
+
   # Model assignment per component
+  # You can now use azure_openai or google_ai as providers for any component
   model_assignments:
     task_enrichment:
       provider: "openrouter"
