@@ -75,7 +75,7 @@ You can:
 #### Timeout
 - If no decision is made within the timeout period:
   - Ticket is automatically deleted
-  - Agent receives timeout error: "Ticket approval timeout after {N} seconds. Please try again."
+  - Agent receives timeout error: "Ticket approval timeout after N seconds. Please try again."
 
 ## Visual Indicators
 
