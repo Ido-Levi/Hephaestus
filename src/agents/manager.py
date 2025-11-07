@@ -7,7 +7,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 import libtmux
 
-from src.core.database import DatabaseManager, Agent, Task, AgentLog
+from src.core.database import DatabaseManager, Agent, Task, AgentLog, BoardConfig, get_db
 from src.interfaces import get_cli_agent, LLMProviderInterface
 from src.core.simple_config import get_config
 from src.core.worktree_manager import WorktreeManager
@@ -147,6 +147,51 @@ class AgentManager:
                     logger.info(f"Setting up GLM-4.6 environment variables for agent {agent_id}")
                 else:
                     logger.warning(f"GLM model configured but {token_env_var} not found, using standard Claude")
+
+            # 3.5. Set MCP_TOOL_TIMEOUT if workflow has human approval enabled
+            # This only applies to Claude Code agents
+            # NOTE: task.workflow_id might be None at creation time, so check active workflow or board configs
+            if cli_type == 'claude':
+                try:
+                    # Try to get workflow_id from multiple sources
+                    workflow_id = None
+
+                    # Source 1: task.workflow_id (might be None at creation time)
+                    if task.workflow_id:
+                        workflow_id = task.workflow_id
+                    # Source 2: active workflow from phase manager
+                    elif hasattr(self, 'phase_manager') and self.phase_manager and hasattr(self.phase_manager, 'workflow_id'):
+                        workflow_id = self.phase_manager.workflow_id
+                    # Source 3: check if there's any active workflow with human review enabled
+                    else:
+                        with get_db() as db:
+                            # Get first board config with human review enabled
+                            board_config = db.query(BoardConfig).filter_by(ticket_human_review=True).first()
+                            if board_config:
+                                workflow_id = board_config.workflow_id
+
+                    if workflow_id:
+                        with get_db() as db:
+                            board_config = db.query(BoardConfig).filter_by(workflow_id=workflow_id).first()
+
+                            if board_config and board_config.ticket_human_review:
+                                # Get timeout in seconds, default to 1800 (30 minutes)
+                                timeout_seconds = board_config.approval_timeout_seconds or 1800
+                                # Convert to milliseconds for Claude Code
+                                timeout_ms = timeout_seconds * 1000
+
+                                # Initialize env_vars if not already set
+                                if env_vars is None:
+                                    env_vars = {}
+
+                                env_vars['MCP_TOOL_TIMEOUT'] = str(timeout_ms)
+                                logger.info(
+                                    f"Human approval enabled for workflow {workflow_id}: "
+                                    f"Setting MCP_TOOL_TIMEOUT={timeout_ms}ms ({timeout_seconds}s)"
+                                )
+                except Exception as e:
+                    logger.warning(f"Failed to check board config for MCP_TOOL_TIMEOUT: {e}")
+                    # Don't fail agent creation if this check fails
 
             # 4. Create tmux session IN THE WORKTREE with env vars
             # Use agent_id for unique session names (not task_id which can be reused on restarts)
@@ -856,6 +901,49 @@ REMEMBER:
                         'ANTHROPIC_DEFAULT_HAIKU_MODEL': 'GLM-4.6',
                     }
                     logger.info(f"Setting up GLM-4.6 environment variables for restarted agent {agent_id}")
+
+            # Set MCP_TOOL_TIMEOUT if workflow has human approval enabled
+            # This only applies to Claude Code agents
+            # NOTE: task.workflow_id might be None at creation time, so check active workflow or board configs
+            if agent.cli_type == 'claude':
+                try:
+                    # Try to get workflow_id from multiple sources
+                    workflow_id = None
+
+                    # Source 1: task.workflow_id (might be None at creation time)
+                    if task.workflow_id:
+                        workflow_id = task.workflow_id
+                    # Source 2: active workflow from phase manager
+                    elif hasattr(self, 'phase_manager') and self.phase_manager and hasattr(self.phase_manager, 'workflow_id'):
+                        workflow_id = self.phase_manager.workflow_id
+                    # Source 3: check if there's any active workflow with human review enabled
+                    else:
+                        # Get first board config with human review enabled
+                        board_config = session.query(BoardConfig).filter_by(ticket_human_review=True).first()
+                        if board_config:
+                            workflow_id = board_config.workflow_id
+
+                    if workflow_id:
+                        board_config = session.query(BoardConfig).filter_by(workflow_id=workflow_id).first()
+
+                        if board_config and board_config.ticket_human_review:
+                            # Get timeout in seconds, default to 1800 (30 minutes)
+                            timeout_seconds = board_config.approval_timeout_seconds or 1800
+                            # Convert to milliseconds for Claude Code
+                            timeout_ms = timeout_seconds * 1000
+
+                            # Initialize env_vars if not already set
+                            if env_vars is None:
+                                env_vars = {}
+
+                            env_vars['MCP_TOOL_TIMEOUT'] = str(timeout_ms)
+                            logger.info(
+                                f"Human approval enabled for workflow {workflow_id}: "
+                                f"Setting MCP_TOOL_TIMEOUT={timeout_ms}ms for restarted agent"
+                            )
+                except Exception as e:
+                    logger.warning(f"Failed to check board config for MCP_TOOL_TIMEOUT on restart: {e}")
+                    # Don't fail agent restart if this check fails
 
             # Create new tmux session with env vars
             # Use agent_id for unique session names (not task_id which can be reused on restarts)

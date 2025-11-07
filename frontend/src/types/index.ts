@@ -313,6 +313,12 @@ export interface Ticket {
   is_blocked: boolean;
   is_resolved: boolean;
   resolved_at: string | null;
+  // Human approval fields
+  approval_status: 'auto_approved' | 'pending_review' | 'approved' | 'rejected';
+  approval_requested_at: string | null;
+  approval_decided_at: string | null;
+  approval_decided_by: string | null;
+  rejection_reason: string | null;
 }
 
 export interface TicketComment {

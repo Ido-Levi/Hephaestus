@@ -24,7 +24,11 @@ PRD_WORKFLOW_CONFIG = WorkflowConfig(
         "auto_assign": True,
         "require_comments_on_status_change": True,
         "allow_reopen": True,
-        "track_time": True
+        "track_time": True,
+
+        # Human Approval Configuration
+        "ticket_human_review": False,  # Disabled by default - set to True to enable human approval
+        "approval_timeout_seconds": 1800,  # 30 minutes timeout (default)
     },
     result_criteria="""VALIDATION REQUIREMENTS FOR SOFTWARE BUILDER COMPLETION:
 

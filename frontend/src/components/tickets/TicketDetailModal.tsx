@@ -29,6 +29,7 @@ import GitDiffModal from './GitDiffModal';
 import AgentDetailModal from '../AgentDetailModal';
 import { PhaseBadge } from '../PhaseBadge';
 import TaskDetailModal from '../TaskDetailModal';
+import TicketApprovalUI from './TicketApprovalUI';
 
 interface TicketDetailModalProps {
   ticketId: string;
@@ -368,6 +369,19 @@ const TicketDetailModal: React.FC<TicketDetailModalProps> = ({ ticketId, onClose
                 </button>
               </div>
             </div>
+
+            {/* Approval UI - show if pending review */}
+            {ticket.approval_status === 'pending_review' && (
+              <div className="px-6 pt-6">
+                <TicketApprovalUI
+                  ticketId={ticketId}
+                  onApproved={() => {
+                    queryClient.invalidateQueries({ queryKey: ['ticket', ticketId] });
+                  }}
+                  onRejected={onClose} // Close modal after rejection since ticket will be deleted
+                />
+              </div>
+            )}
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto">

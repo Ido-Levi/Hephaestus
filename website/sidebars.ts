@@ -57,6 +57,7 @@ const sidebars: SidebarsConfig = {
         'features/diagnostic-agents',
         'features/task-deduplication',
         'features/task-results',
+        'features/ticket-approval',
         'features/workflow-results',
       ],
     },

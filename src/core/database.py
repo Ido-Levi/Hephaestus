@@ -637,6 +637,17 @@ class Ticket(Base):
     is_resolved = Column(Boolean, default=False)  # Whether this ticket is resolved
     resolved_at = Column(DateTime)  # When ticket was resolved
 
+    # Human Approval
+    approval_status = Column(
+        String(20),
+        default="auto_approved",
+        nullable=False
+    )  # auto_approved, pending_review, approved, rejected
+    approval_requested_at = Column(DateTime)  # When approval was requested
+    approval_decided_at = Column(DateTime)  # When human made decision
+    approval_decided_by = Column(String)  # User/agent who approved/rejected
+    rejection_reason = Column(Text)  # Why ticket was rejected
+
     # Relationships
     workflow = relationship("Workflow", backref="tickets")
     created_by_agent = relationship(
@@ -767,6 +778,10 @@ class BoardConfig(Base):
     require_comments_on_status_change = Column(Boolean, default=False)
     allow_reopen = Column(Boolean, default=True)
     track_time = Column(Boolean, default=False)
+
+    # Human Review Settings
+    ticket_human_review = Column(Boolean, default=False)  # Enable human approval for tickets
+    approval_timeout_seconds = Column(Integer, default=1800)  # 30 minutes default
 
     # Metadata
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { Home, FileText, Bot, Database, GitBranch, Activity, Layers, Monitor, Compass, ListChecks, Menu, ChevronLeft, Ticket } from 'lucide-react';
+import { Home, FileText, Bot, Database, GitBranch, Activity, Layers, Monitor, Compass, ListChecks, Menu, ChevronLeft, Ticket, Settings } from 'lucide-react';
 import { useWebSocket } from '@/context/WebSocketContext';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -29,18 +29,20 @@ const Layout: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const navItems = [
-    { to: '/', icon: Home, label: 'Dashboard' },
-    { to: '/overview', icon: Compass, label: 'Overview' },
-    { to: '/tasks', icon: FileText, label: 'Tasks' },
-    { to: '/tickets', icon: Ticket, label: 'Tickets' },
-    { to: '/results', icon: ListChecks, label: 'Results' },
-    { to: '/agents', icon: Bot, label: 'Agents' },
-    { to: '/phases', icon: Layers, label: 'Phases' },
-    { to: '/memories', icon: Database, label: 'Memories' },
-    { to: '/graph', icon: GitBranch, label: 'Graph' },
-    { to: '/observability', icon: Monitor, label: 'Observability' },
-  ];
+    const navItems = [
+      { to: '/', icon: Home, label: 'Dashboard' },
+      { to: '/overview', icon: Compass, label: 'Overview' },
+      { to: '/tasks', icon: FileText, label: 'Tasks' },
+      { to: '/tickets', icon: Ticket, label: 'Tickets' },
+      { to: '/results', icon: ListChecks, label: 'Results' },
+      { to: '/agents', icon: Bot, label: 'Agents' },
+      { to: '/phases', icon: Layers, label: 'Phases' },
+      { to: '/memories', icon: Database, label: 'Memories' },
+      { to: '/graph', icon: GitBranch, label: 'Graph' },
+      { to: '/observability', icon: Monitor, label: 'Observability' },
+      // New config page
+      { to: '/config', icon: Settings, label: 'Config' },
+    ];
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -118,21 +120,25 @@ const Layout: React.FC = () => {
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto">
-        <header className="bg-white shadow-sm border-b">
-          <div className="px-8 py-4 flex items-center justify-between">
-            <div className="flex items-center">
-              <Activity className="w-5 h-5 mr-2 text-gray-600" />
-              <span className="text-gray-800 font-medium">System Overview</span>
+          <header className="bg-white shadow-sm border-b">
+            <div className="px-8 py-4 flex items-center justify-between">
+              <div className="flex items-center">
+                <Activity className="w-5 h-5 mr-2 text-gray-600" />
+                <span className="text-gray-800 font-medium">System Overview</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                {isConnected && (
+                  <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
+                    Live
+                  </span>
+                )}
+                {/* Config page link */}
+                <a href="/config" className="text-gray-600 hover:text-gray-800">
+                  <Settings className="w-5 h-5" />
+                </a>
+              </div>
             </div>
-            <div className="flex items-center space-x-2">
-              {isConnected && (
-                <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
-                  Live
-                </span>
-              )}
-            </div>
-          </div>
-        </header>
+          </header>
 
         <main className="p-8">
           <Outlet />

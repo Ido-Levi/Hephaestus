@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bug, Lightbulb, Wrench, CheckSquare, Beaker, FileText, Lock, CheckCircle, MessageCircle, GitCommit, User } from 'lucide-react';
+import { Bug, Lightbulb, Wrench, CheckSquare, Beaker, FileText, Lock, CheckCircle, MessageCircle, GitCommit, User, Clock } from 'lucide-react';
 import { TicketDetail } from '@/types';
 import { cn } from '@/lib/utils';
 import { Tooltip } from '@/components/ui/tooltip';
@@ -63,11 +63,14 @@ const TicketCard: React.FC<TicketCardProps> = ({
   draggable = true,
   onTagClick,
 }) => {
+  const isPendingReview = ticket.approval_status === 'pending_review';
+
   return (
     <Tooltip content={formatTooltipContent(ticket)}>
       <div
         className={cn(
           'bg-white rounded-lg border border-gray-200 p-3 mb-2 shadow-sm hover:shadow-md transition-all cursor-pointer group',
+          isPendingReview && 'border-l-4 border-l-orange-500 bg-orange-50 ring-2 ring-orange-200',
           ticket.is_blocked && 'border-l-4 border-l-red-500 bg-red-50',
           ticket.is_resolved && 'bg-green-50 border-l-4 border-l-green-500'
         )}
@@ -85,6 +88,11 @@ const TicketCard: React.FC<TicketCardProps> = ({
           {getTicketTypeIcon(ticket.ticket_type)}
         </div>
         <div className="flex items-center space-x-1">
+          {isPendingReview && (
+            <div className="p-1 bg-orange-100 rounded animate-pulse" title="Pending Human Review">
+              <Clock className="w-3 h-3 text-orange-600" />
+            </div>
+          )}
           {ticket.is_blocked && (
             <div className="p-1 bg-red-100 rounded" title="Blocked">
               <Lock className="w-3 h-3 text-red-600" />
@@ -97,6 +105,13 @@ const TicketCard: React.FC<TicketCardProps> = ({
           )}
         </div>
       </div>
+
+      {/* Pending Review Banner */}
+      {isPendingReview && (
+        <div className="mb-2 px-2 py-1 bg-orange-100 border border-orange-300 rounded text-xs font-semibold text-orange-800 text-center">
+          ⏳ Needs Human Review
+        </div>
+      )}
 
       {/* Title */}
       <h3 className="text-sm font-medium text-gray-900 mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">

@@ -4,7 +4,7 @@ Claude MCP Client for Hephaestus
 This client connects to the Hephaestus server running on port 8000
 """
 
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 import httpx
 import asyncio
 
@@ -630,17 +630,27 @@ async def create_ticket(
 
     CRITICAL: agent_id must be your full UUID from your initial prompt!
     DO NOT use 'agent' or 'agent-mcp' - it will fail with "Agent not found"!
-    
+
     IMPORTANT: Search for existing tickets before creating to avoid duplicates!
     Use search_tickets() with semantic search to find related work.
     """
     import logging
+    import os
     logger = logging.getLogger(__name__)
 
     logger.info(f"[MCP_CLIENT_TICKET] ========== START ==========")
     logger.info(f"[MCP_CLIENT_TICKET] Agent: {agent_id}")
     logger.info(f"[MCP_CLIENT_TICKET] Title: {title[:60]}...")
     logger.info(f"[MCP_CLIENT_TICKET] Type: {ticket_type}, Priority: {priority}")
+
+    # Use MCP_TOOL_TIMEOUT if set (for human approval workflows), otherwise default to 10 seconds
+    mcp_timeout_ms = os.environ.get('MCP_TOOL_TIMEOUT')
+    if mcp_timeout_ms:
+        timeout_seconds = float(mcp_timeout_ms) / 1000.0
+        logger.info(f"[MCP_CLIENT_TICKET] Using MCP_TOOL_TIMEOUT: {timeout_seconds}s ({mcp_timeout_ms}ms)")
+    else:
+        timeout_seconds = 10.0
+        logger.info(f"[MCP_CLIENT_TICKET] No MCP_TOOL_TIMEOUT set, using default: {timeout_seconds}s")
 
     try:
         async with httpx.AsyncClient() as client:
@@ -665,7 +675,7 @@ async def create_ticket(
                     "Content-Type": "application/json",
                     "X-Agent-ID": agent_id
                 },
-                timeout=10.0
+                timeout=timeout_seconds
             )
 
             logger.info(f"[MCP_CLIENT_TICKET] Response status: {response.status_code}")

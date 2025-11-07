@@ -3,6 +3,7 @@
 import uuid
 import json
 import logging
+import asyncio
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 
@@ -21,6 +22,88 @@ from src.core.database import (
 )
 from src.services.ticket_history_service import TicketHistoryService
 from src.services.ticket_search_service import TicketSearchService
+
+
+class TicketApprovalManager:
+    """Manages ticket approval workflow with timeout and blocking."""
+
+    def __init__(self):
+        self._pending_approvals: Dict[str, asyncio.Event] = {}  # ticket_id -> asyncio.Event
+        self._approval_decisions: Dict[str, Dict[str, Any]] = {}  # ticket_id -> {"approved": bool, "reason": str}
+
+    async def wait_for_approval(self, ticket_id: str, timeout_seconds: int) -> Dict[str, Any]:
+        """
+        Block and wait for human approval decision.
+
+        Args:
+            ticket_id: ID of the ticket awaiting approval
+            timeout_seconds: How long to wait before timing out
+
+        Returns:
+            Dictionary with keys:
+                - approved (bool): Whether ticket was approved
+                - reason (str): Rejection reason if rejected
+                - timed_out (bool): Whether request timed out
+        """
+        event = asyncio.Event()
+        self._pending_approvals[ticket_id] = event
+
+        try:
+            logger.info(f"[APPROVAL_MANAGER] Waiting for approval of ticket {ticket_id} (timeout: {timeout_seconds}s)")
+
+            # Wait for approval with timeout
+            await asyncio.wait_for(event.wait(), timeout=timeout_seconds)
+
+            # Get decision
+            decision = self._approval_decisions.pop(ticket_id, None)
+            if decision:
+                logger.info(f"[APPROVAL_MANAGER] Ticket {ticket_id} decision: approved={decision.get('approved')}")
+                return {**decision, "timed_out": False}
+            else:
+                # Event was set but no decision found (shouldn't happen)
+                logger.error(f"[APPROVAL_MANAGER] Ticket {ticket_id} event set but no decision recorded")
+                return {"approved": False, "reason": "No decision recorded", "timed_out": False}
+
+        except asyncio.TimeoutError:
+            logger.warning(f"[APPROVAL_MANAGER] Ticket {ticket_id} approval timed out after {timeout_seconds}s")
+            return {"approved": False, "reason": "Approval timeout", "timed_out": True}
+        finally:
+            # Cleanup
+            self._pending_approvals.pop(ticket_id, None)
+            self._approval_decisions.pop(ticket_id, None)
+
+    def record_decision(self, ticket_id: str, approved: bool, reason: str = "") -> None:
+        """
+        Record approval decision and wake up waiting coroutine.
+
+        Args:
+            ticket_id: ID of the ticket
+            approved: Whether ticket was approved
+            reason: Rejection reason if rejected
+        """
+        logger.info(f"[APPROVAL_MANAGER] Recording decision for ticket {ticket_id}: approved={approved}")
+        self._approval_decisions[ticket_id] = {"approved": approved, "reason": reason}
+        event = self._pending_approvals.get(ticket_id)
+        if event:
+            event.set()
+        else:
+            logger.warning(f"[APPROVAL_MANAGER] No pending approval found for ticket {ticket_id}")
+
+    def is_pending(self, ticket_id: str) -> bool:
+        """Check if ticket is awaiting approval."""
+        return ticket_id in self._pending_approvals
+
+    def get_pending_count(self) -> int:
+        """Get count of tickets pending review."""
+        return len(self._pending_approvals)
+
+    def get_pending_ticket_ids(self) -> List[str]:
+        """Get list of ticket IDs pending human review."""
+        return list(self._pending_approvals.keys())
+
+
+# Global instance
+approval_manager = TicketApprovalManager()
 
 
 class TicketService:
@@ -120,6 +203,20 @@ class TicketService:
             if not board_config:
                 raise ValueError(f"Board configuration not found for workflow: {workflow_id}")
 
+            # Check if human review is enabled
+            human_review_enabled = board_config.ticket_human_review or False
+            approval_timeout = board_config.approval_timeout_seconds or 1800
+            logger.info(f"[TICKET_SERVICE] Human review enabled: {human_review_enabled}")
+
+            # Determine initial approval_status
+            if human_review_enabled:
+                approval_status = "pending_review"
+                approval_requested_at = datetime.utcnow()
+                logger.info(f"[TICKET_SERVICE] Ticket will require human approval (timeout: {approval_timeout}s)")
+            else:
+                approval_status = "auto_approved"
+                approval_requested_at = None
+
             # Validate board config structure
             if not isinstance(board_config.columns, list) or len(board_config.columns) == 0:
                 raise ValueError("Invalid board configuration: columns must be a non-empty list")
@@ -203,6 +300,12 @@ class TicketService:
                 is_resolved=False,
                 created_at=datetime.utcnow(),
                 updated_at=datetime.utcnow(),
+                # Human approval fields
+                approval_status=approval_status,
+                approval_requested_at=approval_requested_at,
+                approval_decided_at=None,
+                approval_decided_by=None,
+                rejection_reason=None,
             )
 
             db.add(ticket)
@@ -230,6 +333,129 @@ class TicketService:
             logger.info(f"[TICKET_SERVICE] Committing transaction...")
             db.commit()
             logger.info(f"[TICKET_SERVICE] ✅ Transaction committed - ticket saved to database")
+
+        # If human review required, wait for approval
+        if human_review_enabled:
+            logger.info(f"[TICKET_SERVICE] Waiting for human approval (timeout: {approval_timeout}s)...")
+
+            # Broadcast that ticket needs review (will be implemented with API endpoints)
+            try:
+                from src.mcp.server import server_state
+                await server_state.broadcast_update({
+                    "type": "ticket_pending_review",
+                    "ticket_id": ticket_id,
+                    "workflow_id": workflow_id,
+                    "title": title,
+                    "pending_count": approval_manager.get_pending_count(),
+                })
+            except Exception as e:
+                logger.warning(f"[TICKET_SERVICE] Failed to broadcast pending review: {e}")
+
+            # Wait for approval
+            decision = await approval_manager.wait_for_approval(ticket_id, approval_timeout)
+
+            if decision["timed_out"]:
+                # Timeout - delete ticket and raise error
+                logger.error(f"[TICKET_SERVICE] Approval timeout for ticket {ticket_id}")
+                deleted = False
+                with get_db() as db:
+                    ticket = db.query(Ticket).filter_by(id=ticket_id).first()
+                    if ticket:
+                        # Delete associated records first to avoid foreign key constraint errors
+                        history_count = db.query(TicketHistory).filter_by(ticket_id=ticket_id).delete()
+                        comment_count = db.query(TicketComment).filter_by(ticket_id=ticket_id).delete()
+                        commit_count = db.query(TicketCommit).filter_by(ticket_id=ticket_id).delete()
+
+                        # Now delete the ticket
+                        db.delete(ticket)
+                        db.commit()
+                        deleted = True
+                        logger.info(
+                            f"[TICKET_SERVICE] ✅ Ticket {ticket_id} deleted due to timeout "
+                            f"(deleted {history_count} history, {comment_count} comments, {commit_count} commits)"
+                        )
+                    else:
+                        logger.warning(f"[TICKET_SERVICE] Ticket {ticket_id} not found for deletion (already deleted?)")
+
+                # Broadcast deletion to UI
+                if deleted:
+                    try:
+                        from src.mcp.server import server_state
+                        await server_state.broadcast_update({
+                            "type": "ticket_deleted",
+                            "ticket_id": ticket_id,
+                            "workflow_id": workflow_id,
+                            "reason": "timeout",
+                            "pending_count": approval_manager.get_pending_count(),
+                        })
+                    except Exception as e:
+                        logger.warning(f"[TICKET_SERVICE] Failed to broadcast ticket deletion: {e}")
+
+                raise ValueError(f"Ticket approval timeout after {approval_timeout} seconds. Please try again.")
+
+            elif not decision["approved"]:
+                # Rejected - delete ticket and raise error
+                rejection_reason = decision.get("reason", "No reason provided")
+                logger.error(f"[TICKET_SERVICE] Ticket {ticket_id} rejected: {rejection_reason}")
+                deleted = False
+                with get_db() as db:
+                    ticket = db.query(Ticket).filter_by(id=ticket_id).first()
+                    if ticket:
+                        # Delete associated records first to avoid foreign key constraint errors
+                        history_count = db.query(TicketHistory).filter_by(ticket_id=ticket_id).delete()
+                        comment_count = db.query(TicketComment).filter_by(ticket_id=ticket_id).delete()
+                        commit_count = db.query(TicketCommit).filter_by(ticket_id=ticket_id).delete()
+
+                        # Now delete the ticket
+                        db.delete(ticket)
+                        db.commit()
+                        deleted = True
+                        logger.info(
+                            f"[TICKET_SERVICE] ✅ Ticket {ticket_id} deleted due to rejection "
+                            f"(deleted {history_count} history, {comment_count} comments, {commit_count} commits)"
+                        )
+                    else:
+                        logger.warning(f"[TICKET_SERVICE] Ticket {ticket_id} not found for deletion (already deleted?)")
+
+                # Broadcast deletion to UI
+                if deleted:
+                    try:
+                        from src.mcp.server import server_state
+                        await server_state.broadcast_update({
+                            "type": "ticket_deleted",
+                            "ticket_id": ticket_id,
+                            "workflow_id": workflow_id,
+                            "reason": "rejected",
+                            "rejection_reason": rejection_reason,
+                            "pending_count": approval_manager.get_pending_count(),
+                        })
+                    except Exception as e:
+                        logger.warning(f"[TICKET_SERVICE] Failed to broadcast ticket deletion: {e}")
+
+                raise ValueError(f"Ticket rejected by human reviewer: {rejection_reason}")
+
+            else:
+                # Approved - update ticket
+                logger.info(f"[TICKET_SERVICE] Ticket {ticket_id} approved by human")
+                with get_db() as db:
+                    ticket = db.query(Ticket).filter_by(id=ticket_id).first()
+                    if ticket:
+                        ticket.approval_status = "approved"
+                        ticket.approval_decided_at = datetime.utcnow()
+                        db.commit()
+                        logger.info(f"[TICKET_SERVICE] Ticket {ticket_id} approval status updated to 'approved'")
+
+                # Broadcast approval
+                try:
+                    from src.mcp.server import server_state
+                    await server_state.broadcast_update({
+                        "type": "ticket_approved",
+                        "ticket_id": ticket_id,
+                        "workflow_id": workflow_id,
+                        "pending_count": approval_manager.get_pending_count(),
+                    })
+                except Exception as e:
+                    logger.warning(f"[TICKET_SERVICE] Failed to broadcast approval: {e}")
 
         # Generate embedding and store in Qdrant (outside transaction)
         logger.info(f"[TICKET_SERVICE] Generating embedding for ticket {ticket_id}...")
@@ -708,6 +934,7 @@ class TicketService:
                 "ticket_type": ticket.ticket_type,
                 "priority": ticket.priority,
                 "status": ticket.status,
+                "approval_status": ticket.approval_status,  # For human review workflow
                 "created_by_agent_id": ticket.created_by_agent_id,
                 "assigned_agent_id": ticket.assigned_agent_id,
                 "created_at": ticket.created_at.isoformat() + "Z",
@@ -824,6 +1051,7 @@ class TicketService:
                     "ticket_type": t.ticket_type,
                     "priority": t.priority,
                     "status": t.status,
+                    "approval_status": t.approval_status,  # For human review workflow
                     "created_by_agent_id": t.created_by_agent_id,
                     "assigned_agent_id": t.assigned_agent_id,
                     "created_at": t.created_at.isoformat() + "Z",
@@ -1214,3 +1442,110 @@ class TicketService:
             "unblocked_tickets": unblocked_ticket_ids,
             "unblocked_tasks": unblocked_task_ids,
         }
+
+    @staticmethod
+    async def approve_ticket(
+        ticket_id: str,
+        approved_by: str,
+    ) -> Dict[str, Any]:
+        """
+        Approve a pending ticket.
+
+        Args:
+            ticket_id: ID of the ticket to approve
+            approved_by: User/agent approving the ticket
+
+        Returns:
+            Dictionary with approval status
+
+        Raises:
+            ValueError: If ticket not found or not pending review
+        """
+        logger.info(f"[TICKET_SERVICE] Approving ticket {ticket_id} by {approved_by}")
+
+        with get_db() as db:
+            ticket = db.query(Ticket).filter_by(id=ticket_id).first()
+            if not ticket:
+                raise ValueError(f"Ticket not found: {ticket_id}")
+
+            if ticket.approval_status != "pending_review":
+                raise ValueError(
+                    f"Ticket is not pending review (current status: {ticket.approval_status})"
+                )
+
+            # Record who approved it (will be updated to 'approved' by create_ticket flow)
+            ticket.approval_decided_by = approved_by
+            db.commit()
+
+        # Record decision in approval manager to wake up waiting coroutine
+        approval_manager.record_decision(ticket_id, approved=True, reason="")
+
+        logger.info(f"[TICKET_SERVICE] ✅ Ticket {ticket_id} approved by {approved_by}")
+
+        return {
+            "success": True,
+            "ticket_id": ticket_id,
+            "message": "Ticket approved",
+        }
+
+    @staticmethod
+    async def reject_ticket(
+        ticket_id: str,
+        rejected_by: str,
+        rejection_reason: str,
+    ) -> Dict[str, Any]:
+        """
+        Reject a pending ticket.
+
+        Args:
+            ticket_id: ID of the ticket to reject
+            rejected_by: User/agent rejecting the ticket
+            rejection_reason: Reason for rejection
+
+        Returns:
+            Dictionary with rejection status
+
+        Raises:
+            ValueError: If ticket not found or not pending review
+        """
+        logger.info(f"[TICKET_SERVICE] Rejecting ticket {ticket_id} by {rejected_by}: {rejection_reason}")
+
+        with get_db() as db:
+            ticket = db.query(Ticket).filter_by(id=ticket_id).first()
+            if not ticket:
+                raise ValueError(f"Ticket not found: {ticket_id}")
+
+            if ticket.approval_status != "pending_review":
+                raise ValueError(
+                    f"Ticket is not pending review (current status: {ticket.approval_status})"
+                )
+
+            # Record rejection info (will be deleted by create_ticket flow)
+            ticket.approval_decided_by = rejected_by
+            ticket.rejection_reason = rejection_reason
+            db.commit()
+
+        # Record decision in approval manager to wake up waiting coroutine
+        approval_manager.record_decision(
+            ticket_id,
+            approved=False,
+            reason=rejection_reason
+        )
+
+        logger.info(f"[TICKET_SERVICE] ❌ Ticket {ticket_id} rejected by {rejected_by}")
+
+        return {
+            "success": True,
+            "ticket_id": ticket_id,
+            "message": "Ticket rejected",
+        }
+
+    @staticmethod
+    def get_pending_review_count() -> int:
+        """Get count of tickets pending human review."""
+        return approval_manager.get_pending_count()
+
+    @staticmethod
+    def get_pending_review_tickets() -> List[str]:
+        """Get list of ticket IDs pending human review."""
+        return approval_manager.get_pending_ticket_ids()

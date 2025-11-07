@@ -151,6 +151,12 @@ class Config:
         self.diagnostic_max_conductor_analyses = diagnostic.get('max_conductor_analyses', 5)
         self.diagnostic_max_tasks_per_run = diagnostic.get('max_tasks_per_run', 5)
 
+        # Ticket tracking settings
+        ticket_tracking = config.get('ticket_tracking', {})
+        self.ticket_tracking_enabled = ticket_tracking.get('enabled', True)
+        self.default_human_review = ticket_tracking.get('default_human_review', False)
+        self.default_approval_timeout = ticket_tracking.get('default_approval_timeout', 1800)
+
     def _apply_defaults(self):
         """Apply default configuration values."""
         # Use same defaults as YAML loading

@@ -10,6 +10,7 @@ from src.core.database import (
 )
 from src.phases.models import WorkflowDefinition, PhaseDefinition, PhaseContext, PhasesConfig
 from src.phases.phase_loader import PhaseLoader
+from src.core.simple_config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +182,11 @@ class PhaseManager:
                     from src.core.database import BoardConfig
 
                     board_id = f"board-{str(uuid.uuid4())}"
+                    # Read global defaults for human approval
+                    config = get_config()
+                    default_human_review = getattr(config, 'default_human_review', False)
+                    default_approval_timeout = getattr(config, 'default_approval_timeout', 1800)
+
                     board_config = BoardConfig(
                         id=board_id,
                         workflow_id=workflow_id,
@@ -193,6 +199,9 @@ class PhaseManager:
                         require_comments_on_status_change=phases_config.board_config.get('require_comments_on_status_change', False),
                         allow_reopen=phases_config.board_config.get('allow_reopen', True),
                         track_time=phases_config.board_config.get('track_time', False),
+                        # Human approval settings (with global defaults, can be overridden in board_config)
+                        ticket_human_review=phases_config.board_config.get('ticket_human_review', default_human_review),
+                        approval_timeout_seconds=phases_config.board_config.get('approval_timeout_seconds', default_approval_timeout),
                     )
                     session.add(board_config)
                     logger.info(f"Created BoardConfig for workflow '{workflow_def.name}' with {len(phases_config.board_config.get('columns', []))} columns")

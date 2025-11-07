@@ -433,6 +433,34 @@ export const apiService = {
     return data;
   },
 
+  approveTicket: async (
+    ticketId: string,
+    agentId: string = 'ui-user'
+  ): Promise<{ success: boolean; ticket_id: string; message: string }> => {
+    const { data } = await api.post('/tickets/approve',
+      { ticket_id: ticketId },
+      { headers: { 'X-Agent-ID': agentId } }
+    );
+    return data;
+  },
+
+  rejectTicket: async (
+    ticketId: string,
+    rejectionReason: string,
+    agentId: string = 'ui-user'
+  ): Promise<{ success: boolean; ticket_id: string; message: string }> => {
+    const { data } = await api.post('/tickets/reject',
+      { ticket_id: ticketId, rejection_reason: rejectionReason },
+      { headers: { 'X-Agent-ID': agentId } }
+    );
+    return data;
+  },
+
+  getPendingReviewCount: async (): Promise<{ count: number; ticket_ids: string[] }> => {
+    const { data } = await api.get('/tickets/pending-review-count');
+    return data;
+  },
+
   getCommitDiff: async (commitSha: string): Promise<CommitDiff> => {
     const { data } = await api.get(`/tickets/commit-diff/${commitSha}`, {
       headers: { 'X-Agent-ID': 'ui-user' },

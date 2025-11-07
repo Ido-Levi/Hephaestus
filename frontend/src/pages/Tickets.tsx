@@ -4,6 +4,7 @@ import KanbanBoard from '@/components/tickets/KanbanBoard';
 import TicketSearch from '@/components/tickets/TicketSearch';
 import TicketStats from '@/components/tickets/TicketStats';
 import TicketGraph from '@/components/tickets/TicketGraph';
+import PendingReviewIndicator from '@/components/tickets/PendingReviewIndicator';
 
 const Tickets: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'kanban' | 'search' | 'stats' | 'graph'>('kanban');
@@ -91,13 +92,19 @@ const Tickets: React.FC = () => {
             Manage and track tickets across your workflow
           </p>
         </div>
-        <button
-          onClick={handleNewTicket}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          New Ticket
-        </button>
+
+        <div className="flex items-center space-x-3">
+          {/* Pending Review Indicator */}
+          <PendingReviewIndicator />
+
+          <button
+            onClick={handleNewTicket}
+            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            New Ticket
+          </button>
+        </div>
       </div>
 
       {/* Tab Navigation */}

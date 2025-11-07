@@ -110,6 +110,15 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
             case 'ticket_resolved':
               toast.success('Ticket resolved!', { icon: '✅' });
               break;
+            case 'ticket_approved':
+              toast.success('Ticket approved!', { icon: '✅' });
+              break;
+            case 'ticket_rejected':
+              toast.error('Ticket rejected', { icon: '❌' });
+              break;
+            case 'ticket_deleted':
+              toast('Ticket deleted', { icon: '🗑️' });
+              break;
           }
         } catch (error) {
           console.error('Failed to parse WebSocket message:', error);

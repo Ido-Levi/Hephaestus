@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { AlertCircle, Loader2, Search, ChevronDown } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -7,6 +7,7 @@ import { TicketDetail } from '@/types';
 import TicketCard from './TicketCard';
 import TicketDetailModal from './TicketDetailModal';
 import { cn } from '@/lib/utils';
+import { useWebSocket } from '@/context/WebSocketContext';
 
 interface KanbanBoardProps {
   workflowId: string;
@@ -21,6 +22,34 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ workflowId, onNavigateToSearc
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
   const [selectedAgent, setSelectedAgent] = useState<string>('all');
   const queryClient = useQueryClient();
+  const { subscribe } = useWebSocket();
+
+  // Listen for ticket approval/rejection/deletion events and refetch tickets
+  useEffect(() => {
+    const unsubscribeApproved = subscribe('ticket_approved', () => {
+      queryClient.invalidateQueries({ queryKey: ['tickets', workflowId] });
+      queryClient.invalidateQueries({ queryKey: ['ticketStats', workflowId] });
+      queryClient.invalidateQueries({ queryKey: ['pendingReviewCount'] });
+    });
+
+    const unsubscribeRejected = subscribe('ticket_rejected', () => {
+      queryClient.invalidateQueries({ queryKey: ['tickets', workflowId] });
+      queryClient.invalidateQueries({ queryKey: ['ticketStats', workflowId] });
+      queryClient.invalidateQueries({ queryKey: ['pendingReviewCount'] });
+    });
+
+    const unsubscribeDeleted = subscribe('ticket_deleted', () => {
+      queryClient.invalidateQueries({ queryKey: ['tickets', workflowId] });
+      queryClient.invalidateQueries({ queryKey: ['ticketStats', workflowId] });
+      queryClient.invalidateQueries({ queryKey: ['pendingReviewCount'] });
+    });
+
+    return () => {
+      unsubscribeApproved();
+      unsubscribeRejected();
+      unsubscribeDeleted();
+    };
+  }, [subscribe, queryClient, workflowId]);
 
   // Fetch board stats to get column configuration
   const { data: stats, isLoading: statsLoading } = useQuery({

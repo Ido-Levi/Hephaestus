@@ -7,7 +7,7 @@ import logging
 import os
 import time
 from datetime import datetime, timedelta
-from fastapi import FastAPI, HTTPException, Header, WebSocket, WebSocketDisconnect, Body
+from fastapi import FastAPI, HTTPException, Header, WebSocket, WebSocketDisconnect, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
@@ -382,6 +382,7 @@ class TicketDetail(BaseModel):
     ticket_type: str
     priority: str
     status: str
+    approval_status: Optional[str] = "auto_approved"  # For human review workflow
     created_by_agent_id: str
     assigned_agent_id: Optional[str] = None
     created_at: str
@@ -456,6 +457,29 @@ class RequestTicketClarificationResponse(BaseModel):
     clarification: str  # Markdown-formatted detailed response
     comment_id: str  # ID of the comment where clarification was stored
     message: str
+
+
+class ApproveTicketResponse(BaseModel):
+    """Response model for ticket approval."""
+
+    success: bool
+    ticket_id: str
+    message: str
+
+
+class RejectTicketResponse(BaseModel):
+    """Response model for ticket rejection."""
+
+    success: bool
+    ticket_id: str
+    message: str
+
+
+class PendingReviewCountResponse(BaseModel):
+    """Response model for pending review count."""
+
+    count: int
+    ticket_ids: List[str]
 
 
 class FileDiff(BaseModel):
@@ -2648,6 +2672,27 @@ async def add_comment_endpoint(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/tickets/pending-review-count", response_model=PendingReviewCountResponse)
+async def get_pending_review_count_endpoint():
+    """Get count of tickets pending human review."""
+    logger.info("[PENDING_REVIEW_COUNT] Fetching pending review count")
+
+    try:
+        count = TicketService.get_pending_review_count()
+        ticket_ids = TicketService.get_pending_review_tickets()
+
+        logger.info(f"[PENDING_REVIEW_COUNT] Found {count} tickets pending review")
+
+        return PendingReviewCountResponse(
+            count=count,
+            ticket_ids=ticket_ids,
+        )
+
+    except Exception as e:
+        logger.error(f"[PENDING_REVIEW_COUNT] ❌ Error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/tickets/{ticket_id}")
 async def get_ticket_endpoint(
     ticket_id: str,
@@ -3179,6 +3224,104 @@ async def request_ticket_clarification_endpoint(
         logger.error(f"[CLARIFICATION] ❌ Error: {e}", exc_info=True)
         logger.error(f"[CLARIFICATION] ========== FAILED ==========")
         raise HTTPException(status_code=500, detail=f"Failed to generate clarification: {str(e)}")
+
+
+@app.post("/api/tickets/approve", response_model=ApproveTicketResponse)
+async def approve_ticket_endpoint(
+    request: Request,
+    agent_id: str = Header("ui-user", alias="X-Agent-ID"),
+):
+    """
+    Approve a pending ticket.
+
+    Body: {"ticket_id": "ticket-uuid"}
+    """
+    logger.info(f"[APPROVE_TICKET] Agent {agent_id} approving ticket")
+
+    try:
+        data = await request.json()
+        ticket_id = data.get("ticket_id")
+
+        if not ticket_id:
+            raise HTTPException(status_code=400, detail="ticket_id required")
+
+        logger.info(f"[APPROVE_TICKET] Ticket ID: {ticket_id}")
+
+        result = await TicketService.approve_ticket(
+            ticket_id=ticket_id,
+            approved_by=agent_id,
+        )
+
+        # Broadcast approval
+        await server_state.broadcast_update({
+            "type": "ticket_approved",
+            "ticket_id": ticket_id,
+            "approved_by": agent_id,
+            "pending_count": TicketService.get_pending_review_count(),
+        })
+
+        logger.info(f"[APPROVE_TICKET] ✅ Ticket {ticket_id} approved successfully")
+
+        return ApproveTicketResponse(**result)
+
+    except ValueError as e:
+        logger.error(f"[APPROVE_TICKET] ❌ Validation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"[APPROVE_TICKET] ❌ Unexpected error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/tickets/reject", response_model=RejectTicketResponse)
+async def reject_ticket_endpoint(
+    request: Request,
+    agent_id: str = Header("ui-user", alias="X-Agent-ID"),
+):
+    """
+    Reject a pending ticket.
+
+    Body: {"ticket_id": "ticket-uuid", "rejection_reason": "..."}
+    """
+    logger.info(f"[REJECT_TICKET] Agent {agent_id} rejecting ticket")
+
+    try:
+        data = await request.json()
+        ticket_id = data.get("ticket_id")
+        rejection_reason = data.get("rejection_reason", "")
+
+        if not ticket_id:
+            raise HTTPException(status_code=400, detail="ticket_id required")
+
+        if not rejection_reason:
+            raise HTTPException(status_code=400, detail="rejection_reason required")
+
+        logger.info(f"[REJECT_TICKET] Ticket ID: {ticket_id}, Reason: {rejection_reason}")
+
+        result = await TicketService.reject_ticket(
+            ticket_id=ticket_id,
+            rejected_by=agent_id,
+            rejection_reason=rejection_reason,
+        )
+
+        # Broadcast rejection
+        await server_state.broadcast_update({
+            "type": "ticket_rejected",
+            "ticket_id": ticket_id,
+            "rejected_by": agent_id,
+            "rejection_reason": rejection_reason,
+            "pending_count": TicketService.get_pending_review_count(),
+        })
+
+        logger.info(f"[REJECT_TICKET] ✅ Ticket {ticket_id} rejected successfully")
+
+        return RejectTicketResponse(**result)
+
+    except ValueError as e:
+        logger.error(f"[REJECT_TICKET] ❌ Validation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"[REJECT_TICKET] ❌ Unexpected error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/tickets/commit-diff/{commit_sha}", response_model=CommitDiffResponse)
