@@ -1,6 +1,7 @@
 """LangChain-based multi-provider LLM client for Hephaestus."""
 
 import logging
+import os
 from typing import Dict, Any, List, Optional, Literal
 from enum import Enum
 import json
@@ -202,12 +203,15 @@ class LangChainLLMClient:
                     }
                     logger.info(f"OpenRouter configured with provider routing: {provider_name} (order: [{provider_name}], fallbacks: disabled)")
 
+                # Use config base_url, then env var, then default
+                base_url = provider_config.base_url or os.getenv('OPENROUTER_BASE_URL') or "https://openrouter.ai/api/v1"
+
                 return ChatOpenAI(
                     model=model_name,
                     temperature=assignment.temperature,
                     max_tokens=assignment.max_tokens,
                     openai_api_key=api_key,
-                    base_url=provider_config.base_url or "https://openrouter.ai/api/v1",
+                    base_url=base_url,
                     default_headers={
                         "HTTP-Referer": "https://github.com/hephaestus",
                         "X-Title": "Hephaestus Multi-Provider LLM"
