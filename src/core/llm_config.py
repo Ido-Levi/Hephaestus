@@ -94,9 +94,16 @@ class SimpleConfig:
                         else:
                             models.append(model)
 
+                    # Allow environment variable to override base_url for openrouter
+                    base_url = provider_data.get('base_url')
+                    if provider_name == 'openrouter':
+                        env_base_url = os.getenv('OPENROUTER_BASE_URL')
+                        if env_base_url:
+                            base_url = env_base_url
+
                     providers[provider_name] = ProviderConfig(
                         api_key_env=provider_data.get('api_key_env', f"{provider_name.upper()}_API_KEY"),
-                        base_url=provider_data.get('base_url'),
+                        base_url=base_url,
                         models=models,
                         api_version=provider_data.get('api_version'),
                         project_id=provider_data.get('project_id'),
