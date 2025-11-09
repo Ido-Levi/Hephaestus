@@ -538,6 +538,18 @@ Open your browser to `http://localhost:3000`. You'll see:
 
 Instead of building your own workflow from scratch, use our pre-built **Personal Task Manager** example:
 
+## ⚠️ Important: Initial Claude CLI Setup
+
+Before running the Hephaestus application for the first time if you haven't used Claude Code before, you must initialize the Claude Code CLI tool and accept the liability prompt. **If you skip this step, your agents will get stuck and the workflow will not progress.**
+
+1.  Open your terminal and run the following command:
+    ```bash
+    claude --model sonnet --dangerously-skip-permissions
+    ```
+2.  The tool will launch and display a legal/liability warning. Read and **accept this prompt** to allow Claude Code to run.
+3.  Once accepted, you can exit the tool, and the Hephaestus agents will be able to launch it without being blocked.
+
+
 **All-in-One Runner** (simplest approach):
 ```bash
 # Terminal 1: Start Qdrant (if not already running)
