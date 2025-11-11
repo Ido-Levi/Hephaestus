@@ -166,12 +166,20 @@ class LangChainLLMClient:
 
         try:
             if provider == "openai":
-                return ChatOpenAI(
-                    model=assignment.model,
-                    temperature=assignment.temperature,
-                    max_tokens=assignment.max_tokens,
-                    openai_api_key=api_key
-                )
+                kwargs = {
+                    "model": assignment.model,
+                    "max_tokens": assignment.max_tokens,
+                    "openai_api_key": api_key
+                }
+
+                # GPT-5 models only support temperature=1.0 (no other values allowed)
+                # For other models, use the configured temperature
+                if assignment.model.startswith("gpt-5"):
+                    kwargs["temperature"] = 1.0
+                else:
+                    kwargs["temperature"] = assignment.temperature
+
+                return ChatOpenAI(**kwargs)
 
             elif provider == "groq":
                 return ChatGroq(
