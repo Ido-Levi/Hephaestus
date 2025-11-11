@@ -684,12 +684,11 @@ REMEMBER:
         # Check if this is OpenCode (prompt already loaded via -p flag)
         is_opencode = cli_type == "opencode"
 
-        # Check if this is a Claude agent (needs chunking)
-        from src.interfaces.cli_interface import ClaudeCodeAgent, DroidAgent
+        # Check which agents need chunking
+        from src.interfaces.cli_interface import ClaudeCodeAgent, DroidAgent, CodexAgent
         is_claude = isinstance(cli_agent, ClaudeCodeAgent)
-
-        # Check if this is a Droid agent (needs chunking like Claude)
         is_droid = isinstance(cli_agent, DroidAgent)
+        is_codex = isinstance(cli_agent, CodexAgent)
 
         # If verification is disabled, just send once and return
         if not verify_delivery:
@@ -699,9 +698,14 @@ REMEMBER:
                 await asyncio.sleep(5)
                 pane.send_keys('', enter=True)  # Send Enter to submit the prompt
                 logger.info(f"OpenCode: Enter sent to agent {agent_id}")
-            elif is_claude or is_droid:
-                # Claude/Droid: Send in chunks to avoid tmux buffer issues with large prompts
-                agent_name = "Claude" if is_claude else "Droid"
+            elif is_claude or is_droid or is_codex:
+                # Claude/Droid/Codex: Send in chunks to avoid tmux buffer issues with large prompts
+                if is_claude:
+                    agent_name = "Claude"
+                elif is_droid:
+                    agent_name = "Droid"
+                else:
+                    agent_name = "Codex"
                 logger.info(f"Sending initial prompt to {agent_name} agent {agent_id} (verification disabled)")
                 formatted_message = cli_agent.format_message(initial_message)
 
@@ -738,9 +742,14 @@ REMEMBER:
                 logger.info(f"OpenCode agent: Prompt loaded via -p flag, waiting 5 seconds then sending Enter")
                 await asyncio.sleep(5)
                 pane.send_keys('', enter=True)  # Send Enter to submit the prompt
-            elif is_claude or is_droid:
-                # Claude/Droid: Send in chunks to avoid tmux buffer issues with large prompts
-                agent_name = "Claude" if is_claude else "Droid"
+            elif is_claude or is_droid or is_codex:
+                # Claude/Droid/Codex: Send in chunks to avoid tmux buffer issues with large prompts
+                if is_claude:
+                    agent_name = "Claude"
+                elif is_droid:
+                    agent_name = "Droid"
+                else:
+                    agent_name = "Codex"
                 formatted_message = cli_agent.format_message(initial_message)
                 chunk_size = 2000  # characters per chunk
                 num_chunks = (len(formatted_message) + chunk_size - 1) // chunk_size
