@@ -27,7 +27,7 @@ We're running a large-scale evaluation of Hephaestus on the [SWEBench-Verified](
 
 Join our Discord channel to coordinate instance assignments and avoid duplicates:
 
-**Discord:** https://discord.gg/FyrC4fpS
+**Discord:** https://discord.gg/FMCJeKG3dU
 
 - Announce which instances you're planning to run
 - Get your OpenRouter API key
@@ -259,7 +259,7 @@ docker run -d -p 6333:6333 qdrant/qdrant
 
 ### Getting Help
 
-- **Discord:** https://discord.gg/FyrC4fpS - Ask questions, get support
+- **Discord:** https://discord.gg/FMCJeKG3dU - Ask questions, get support
 - **GitHub Issues:** Report bugs or problems
 - **Documentation:** See other guides in `website/docs/guides/`
 
@@ -279,7 +279,7 @@ Thank you for helping advance autonomous AI agent research! 🚀
 - [SWEBench-Verified Dataset](https://huggingface.co/datasets/princeton-nlp/SWE-bench_Verified)
 - [SWEBench Paper](https://arxiv.org/abs/2310.06770)
 - [Hephaestus Documentation](../)
-- [Discord Community](https://discord.gg/FyrC4fpS)
+- [Discord Community](https://discord.gg/FMCJeKG3dU)
 
 ## 🔄 Running Multiple Batches
 
@@ -299,4 +299,4 @@ Want to contribute more? After completing a batch:
 
 ---
 
-**Questions?** Join us on [Discord](https://discord.gg/FyrC4fpS)! 🎮
+**Questions?** Join us on [Discord](https://discord.gg/FMCJeKG3dU)! 🎮

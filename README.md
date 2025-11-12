@@ -9,7 +9,7 @@
 
 **What if AI workflows could write their own instructions as agents discover what needs to be done?**
 
-[Quick Start](https://ido-levi.github.io/Hephaestus/docs/getting-started/quick-start) • [Documentation](https://ido-levi.github.io/Hephaestus/) • [Examples](example_workflows/) • [Help us evaluate SWEBench](https://ido-levi.github.io/Hephaestus/docs/guides/running-swebench-benchmark) • [Join our discord](https://discord.gg/FyrC4fpS)
+[Quick Start](https://ido-levi.github.io/Hephaestus/docs/getting-started/quick-start) • [Documentation](https://ido-levi.github.io/Hephaestus/) • [Examples](example_workflows/) • [Help us evaluate SWEBench](https://ido-levi.github.io/Hephaestus/docs/guides/running-swebench-benchmark) • [Join our discord](https://discord.gg/FMCJeKG3dU)
 
 </div>
 
