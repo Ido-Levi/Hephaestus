@@ -242,7 +242,7 @@ def main():
         print(f"[Task] PRD Location: {prd_file}")
         try:
             task_id = sdk.create_task(
-                description=f"Phase 1: Build LinkLite URL Shortener - Analyze PRD at {prd_file}. This is a production-ready URL shortening service with batch operations, rich analytics, QR codes, API, and custom domains. Extract all requirements, identify components (auth, links, analytics, API, frontend, workers, QR generation), and spawn MULTIPLE Phase 2 design tasks (one per component). Read the entire PRD carefully - it has 10 sections with detailed specs.",
+                description=f"Analyze PRD at {prd_file}.",
                 phase_id=1,
                 priority="high",
                 agent_id="main-session-agent",
