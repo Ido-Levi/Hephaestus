@@ -21,6 +21,7 @@ const sidebars: SidebarsConfig = {
       collapsed: false,
       items: [
         'getting-started/quick-start',
+        'getting-started/hephaestus-dev',
         'getting-started/bootstrap-new-project',
       ],
     },
@@ -41,7 +42,6 @@ const sidebars: SidebarsConfig = {
         'guides/best-practices',
         'guides/guardian-monitoring',
         'guides/ticket-tracking',
-        'guides/running-swebench-benchmark',
       ],
     },
     {
@@ -55,6 +55,7 @@ const sidebars: SidebarsConfig = {
         'core/validation-system',
         'core/worktree-isolation',
         'features/diagnostic-agents',
+        'features/launch-templates',
         'features/task-deduplication',
         'features/task-results',
         'features/ticket-approval',

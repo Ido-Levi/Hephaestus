@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Lock, ExternalLink, AlertTriangle, Loader2, Ban, ChevronDown, ChevronUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { apiService } from '@/services/api';
+import { useWorkflow } from '@/context/WorkflowContext';
 import { BlockedTask, BlockerTicket } from '@/types';
 import StatusBadge from '@/components/StatusBadge';
 import { formatDistanceToNow } from 'date-fns';
@@ -15,11 +16,13 @@ interface BlockedTasksViewProps {
 const BlockedTasksView: React.FC<BlockedTasksViewProps> = ({ onViewTicketDetails }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const navigate = useNavigate();
+  const { selectedExecutionId } = useWorkflow();
 
   const { data: blockedTasks, isLoading } = useQuery({
-    queryKey: ['blocked-tasks'],
-    queryFn: apiService.getBlockedTasks,
+    queryKey: ['blocked-tasks', selectedExecutionId],
+    queryFn: () => apiService.getBlockedTasks(selectedExecutionId || undefined),
     refetchInterval: 5000, // Poll every 5 seconds
+    enabled: !!selectedExecutionId,
   });
 
   const handleViewTicket = (ticketId: string) => {

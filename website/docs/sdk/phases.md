@@ -337,15 +337,26 @@ BUG_FIX_PHASES = [
 The easiest way to use phases is to import existing ones:
 
 ```python
-from example_workflows.prd_to_software.phases import PRD_PHASES
+from example_workflows.prd_to_software.phases import PRD_PHASES, PRD_WORKFLOW_CONFIG, PRD_LAUNCH_TEMPLATE
+from example_workflows.bug_fix.phases import BUG_FIX_PHASES, BUG_FIX_WORKFLOW_CONFIG, BUG_FIX_LAUNCH_TEMPLATE
 from src.sdk import HephaestusSDK
+from src.sdk.models import WorkflowDefinition
 
-sdk = HephaestusSDK(phases=PRD_PHASES)
+# Create workflow definitions
+prd_workflow = WorkflowDefinition(
+    id="prd-to-software",
+    name="PRD to Software Builder",
+    phases=PRD_PHASES,
+    config=PRD_WORKFLOW_CONFIG,
+    launch_template=PRD_LAUNCH_TEMPLATE,
+)
+
+sdk = HephaestusSDK(workflow_definitions=[prd_workflow])
 ```
 
 **Available workflows:**
 - `example_workflows/prd_to_software/phases.py` - PRD to working software
-- More in `example_workflows/` directory
+- `example_workflows/bug_fix/phases.py` - Bug fixing workflow
 
 ## Programmatic Phase Generation
 
@@ -540,18 +551,89 @@ Phase(
 
 Break it into multiple phases instead.
 
+## Bundling Into Workflow Definitions
+
+Once you have phases, bundle them with configuration and a launch template to create a complete workflow:
+
+```python
+from src.sdk.models import Phase, WorkflowConfig, LaunchTemplate, LaunchParameter, WorkflowDefinition
+
+# Your phases
+my_phases = [
+    Phase(id=1, name="analyze", ...),
+    Phase(id=2, name="build", ...),
+    Phase(id=3, name="verify", ...),
+]
+
+# Result handling
+my_config = WorkflowConfig(
+    has_result=True,
+    result_criteria="All work completed and verified",
+    on_result_found="complete"
+)
+
+# UI launch form
+my_template = LaunchTemplate(
+    parameters=[
+        LaunchParameter(
+            name="task_description",
+            label="What needs to be done?",
+            type="textarea",
+            required=True,
+        ),
+        LaunchParameter(
+            name="priority",
+            label="Priority",
+            type="dropdown",
+            options=["Low", "Medium", "High"],
+            default="Medium",
+        ),
+    ],
+    phase_1_task_prompt="""Phase 1: Analyze the Task
+
+**Priority:** {priority}
+
+**Description:**
+{task_description}
+
+Your task: Analyze this request and create Phase 2 implementation tasks.
+"""
+)
+
+# Bundle everything
+my_workflow = WorkflowDefinition(
+    id="my-workflow",
+    name="My Custom Workflow",
+    description="Does something useful",
+    phases=my_phases,
+    config=my_config,
+    launch_template=my_template,
+)
+```
+
+**WorkflowDefinition fields:**
+- `id`: Unique identifier (used in API calls)
+- `name`: Human-readable name (shown in UI)
+- `description`: Brief description (shown in workflow selector)
+- `phases`: List of Phase objects
+- `config`: WorkflowConfig for result handling
+- `launch_template`: LaunchTemplate for UI forms (optional)
+
+See [Launch Templates](../features/launch-templates.md) for complete template documentation.
+
 ## Next Steps
 
 **See Real Examples**
-- [SDK Examples](examples.md) - Breakdown of `run_prd_workflow.py`
-- `example_workflows/prd_to_software/phases.py` - Production workflow phases
+- [SDK Examples](examples.md) - Complete workflow setup walkthrough
+- `example_workflows/prd_to_software/phases.py` - PRD workflow with launch template
+- `example_workflows/bug_fix/phases.py` - Bug fix workflow with launch template
 
 **Understand the System**
 - [Phases System Guide](../guides/phases-system.md) - How workflows build themselves
 - [Quick Start](../getting-started/quick-start.md) - Build your first workflow
 
 **Advanced Topics**
-- [Workflow Configuration](../guides/workflow-config.md) - Result handling and termination
+- [Launch Templates](../features/launch-templates.md) - UI form configuration
 - [Validation System](../features/validation-system.md) - Automated validation agents
 
 ## The Bottom Line
@@ -560,4 +642,4 @@ Phases are instruction sets for agents. The clearer your instructions, the bette
 
 Write specific done definitions. Number your steps. Show examples. Mandate phase transitions.
 
-Then let agents build your workflow.
+Bundle your phases into WorkflowDefinitions with launch templates, and let users launch workflows from the UI.

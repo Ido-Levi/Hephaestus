@@ -1,13 +1,17 @@
 import React, { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Layers, Users, ListTodo, RefreshCw, ArrowRight, Eye } from 'lucide-react';
+import { Layers, Users, ListTodo, RefreshCw, ArrowRight, Eye, FileCode } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useSocket } from '@/hooks/useSocket';
+import { useWorkflow } from '@/context/WorkflowContext';
+import { apiService } from '@/services/api';
+import WorkflowSelector from '@/components/WorkflowSelector';
 
 interface Phase {
   id: string;
@@ -40,29 +44,34 @@ interface PhaseActivity {
 }
 
 export default function Phases() {
-  const [workflow, setWorkflow] = useState<WorkflowInfo | null>(null);
   const [activities, setActivities] = useState<PhaseActivity[]>([]);
-  const [loading, setLoading] = useState(true);
   const [phaseData, setPhaseData] = useState<{[key: string]: any}>({});
   const [loadingPhase, setLoadingPhase] = useState<{[key: string]: boolean}>({});
+  const [selectedDefinitionId, setSelectedDefinitionId] = useState<string | null>(null);
   const navigate = useNavigate();
   const socket = useSocket();
+  const { selectedExecutionId, definitions } = useWorkflow();
 
-  const fetchWorkflow = async () => {
-    try {
-      const response = await fetch('http://localhost:8000/api/workflow');
-      const data = await response.json();
-      setWorkflow(data);
-    } catch (error) {
-      console.error('Error fetching workflow:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Get the selected definition
+  const selectedDefinition = definitions.find(d => d.id === selectedDefinitionId);
+
+  const { data: workflowData, isLoading: loading, refetch } = useQuery({
+    queryKey: ['workflow-execution', selectedExecutionId],
+    queryFn: () => selectedExecutionId ? apiService.getWorkflowExecution(selectedExecutionId) : null,
+    enabled: !!selectedExecutionId,
+    refetchInterval: 5000,
+  });
+
+  // Transform workflowData to match expected format
+  const workflow: WorkflowInfo | null = workflowData ? {
+    id: workflowData.id,
+    name: workflowData.definition_name || 'Workflow',
+    status: workflowData.status,
+    total_phases: workflowData.phases?.length || 0,
+    phases: workflowData.phases || [],
+  } : null;
 
   useEffect(() => {
-    fetchWorkflow();
-
     // Set up WebSocket listeners for real-time updates
     if (socket) {
       socket.on('phase_activity', (activity: PhaseActivity) => {
@@ -70,7 +79,7 @@ export default function Phases() {
       });
 
       socket.on('phase_update', () => {
-        fetchWorkflow(); // Refresh phase data
+        refetch(); // Refresh phase data
       });
     }
 
@@ -80,7 +89,7 @@ export default function Phases() {
         socket.off('phase_update');
       }
     };
-  }, [socket]);
+  }, [socket, refetch]);
 
   const getPhaseColor = (order: number, total: number) => {
     const opacity = 0.3 + (0.7 * ((order - 1) / Math.max(total - 1, 1)));
@@ -107,20 +116,158 @@ export default function Phases() {
     }
   };
 
+  if (!selectedExecutionId) {
+    // Show definition info if a definition is selected but no execution
+    if (selectedDefinition) {
+      return (
+        <div className="container mx-auto p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold flex items-center gap-2">
+                <Layers className="h-8 w-8" />
+                Workflow: {selectedDefinition.name}
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                {selectedDefinition.phases_count} phases - No active executions
+              </p>
+            </div>
+            <div className="flex items-center gap-4">
+              <WorkflowSelector onDefinitionChange={setSelectedDefinitionId} />
+              <Button onClick={() => refetch()} variant="outline" size="sm">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
+            </div>
+          </div>
+
+          {/* Loaded Workflow Definitions */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileCode className="h-5 w-5 text-purple-600" />
+                Loaded Workflow Definitions
+              </CardTitle>
+              <CardDescription>Available workflow types in the system</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {definitions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No workflow definitions loaded</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {definitions.map((def) => (
+                    <div
+                      key={def.id}
+                      className={cn(
+                        "border rounded-lg p-3 transition-colors",
+                        selectedDefinitionId === def.id
+                          ? "bg-purple-100 border-purple-300"
+                          : "bg-purple-50 border-purple-200"
+                      )}
+                    >
+                      <div className="font-medium text-gray-800">{def.name}</div>
+                      <div className="text-sm text-gray-600 line-clamp-2">{def.description}</div>
+                      <div className="text-xs text-purple-600 mt-1">
+                        {def.phases_count} phases
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Definition Info Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>{selectedDefinition.name}</CardTitle>
+              <CardDescription>{selectedDefinition.description}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8 text-muted-foreground">
+                <Layers className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <p className="text-lg font-medium">This workflow has {selectedDefinition.phases_count} phases</p>
+                <p className="text-sm mt-2">
+                  No executions available. Start a new execution to see phase details with task statistics.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Live Activity Feed */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Live Activity Feed</CardTitle>
+              <CardDescription>Real-time phase activities from Hephaestus</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[300px] w-full rounded-md border p-4">
+                <div className="text-center text-muted-foreground py-8">
+                  No activities yet. Activities will appear here as agents work.
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    return (
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-2">
+              <Layers className="h-8 w-8" />
+              Phases
+            </h1>
+            <p className="text-muted-foreground mt-1">View workflow phases</p>
+          </div>
+          <WorkflowSelector onDefinitionChange={setSelectedDefinitionId} />
+        </div>
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-12 text-center">
+          <p className="text-gray-500 text-lg">Select a workflow type to view phases</p>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-lg">Loading workflow...</div>
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-2">
+              <Layers className="h-8 w-8" />
+              Phases
+            </h1>
+            <p className="text-muted-foreground mt-1">View workflow phases</p>
+          </div>
+          <WorkflowSelector onDefinitionChange={setSelectedDefinitionId} />
+        </div>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-lg">Loading workflow...</div>
+        </div>
       </div>
     );
   }
 
   if (!workflow || workflow.total_phases === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-4">
-        <Layers className="h-12 w-12 text-muted-foreground" />
-        <div className="text-lg text-muted-foreground">No workflow loaded</div>
-        <p className="text-sm text-muted-foreground">Start by loading a workflow with phases</p>
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-2">
+              <Layers className="h-8 w-8" />
+              Phases
+            </h1>
+            <p className="text-muted-foreground mt-1">View workflow phases</p>
+          </div>
+          <WorkflowSelector onDefinitionChange={setSelectedDefinitionId} />
+        </div>
+        <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <Layers className="h-12 w-12 text-muted-foreground" />
+          <div className="text-lg text-muted-foreground">No phases in this workflow</div>
+          <p className="text-sm text-muted-foreground">This workflow does not have any phases configured</p>
+        </div>
       </div>
     );
   }
@@ -135,14 +282,53 @@ export default function Phases() {
             Workflow: {workflow.name}
           </h1>
           <p className="text-muted-foreground mt-1">
-            {workflow.total_phases} phases • Status: {workflow.status}
+            {workflow.total_phases} phases - Status: {workflow.status}
           </p>
         </div>
-        <Button onClick={fetchWorkflow} variant="outline" size="sm">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-4">
+          <WorkflowSelector onDefinitionChange={setSelectedDefinitionId} />
+          <Button onClick={() => refetch()} variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
       </div>
+
+      {/* Loaded Workflow Definitions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileCode className="h-5 w-5 text-purple-600" />
+            Loaded Workflow Definitions
+          </CardTitle>
+          <CardDescription>Available workflow types in the system</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {definitions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No workflow definitions loaded</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {definitions.map((def) => (
+                <div
+                  key={def.id}
+                  className={cn(
+                    "border rounded-lg p-3 transition-colors",
+                    workflow?.id && workflowData?.definition_id === def.id
+                      ? "bg-purple-100 border-purple-300"
+                      : "bg-purple-50 border-purple-200"
+                  )}
+                >
+                  <div className="font-medium text-gray-800">{def.name}</div>
+                  <div className="text-sm text-gray-600 line-clamp-2">{def.description}</div>
+                  <div className="text-xs text-purple-600 mt-1">
+                    {def.phases_count} phases
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Active Phase Distribution */}
       <Card>
@@ -154,7 +340,7 @@ export default function Phases() {
           <div className="relative h-12 bg-muted rounded-lg overflow-hidden">
             <div className="absolute inset-0 flex">
               {workflow.phases.map((phase) => {
-                const width = `${100 / workflow.total_phases}%`;
+                const _width = `${100 / workflow.total_phases}%`;
                 const isActive = phase.active_agents > 0;
                 return (
                   <div

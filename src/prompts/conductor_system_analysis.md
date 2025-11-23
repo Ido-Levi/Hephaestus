@@ -8,6 +8,14 @@ You are the Conductor analyzing system-wide coherence from multiple agent trajec
 **System Constraints**: {system_constraints}
 **Coordination Requirement**: {coordination_requirement}
 
+## ACTIVE WORKFLOWS
+
+Review active workflows and their agents:
+
+{workflows_breakdown}
+
+This shows which agents belong to which workflows and their current status.
+
 ## AGENT TRAJECTORIES FROM GUARDIAN ANALYSES
 
 Review these Guardian summaries to understand what each agent is doing:

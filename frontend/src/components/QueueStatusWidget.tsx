@@ -3,13 +3,17 @@ import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Users, Clock, Zap, AlertCircle, ChevronRight } from 'lucide-react';
 import { apiService } from '@/services/api';
+import { useWorkflow } from '@/context/WorkflowContext';
 import { formatDistanceToNow } from 'date-fns';
 
 const QueueStatusWidget: React.FC = () => {
+  const { selectedExecutionId } = useWorkflow();
+
   const { data: queueStatus, isLoading } = useQuery({
-    queryKey: ['queueStatus'],
-    queryFn: apiService.getQueueStatus,
+    queryKey: ['queueStatus', selectedExecutionId],
+    queryFn: () => apiService.getQueueStatus(selectedExecutionId || undefined),
     refetchInterval: 3000, // Poll every 3 seconds
+    enabled: !!selectedExecutionId,
   });
 
   if (isLoading || !queueStatus) {

@@ -29,21 +29,23 @@ def health_check() -> str:
         return f"❌ Cannot connect to Hephaestus server: {str(e)}"
 
 @mcp.tool()
-async def create_task(description: str, done_definition: str, agent_id: str, phase_id: int, priority: str = "medium", cwd: str = None, ticket_id: str = None) -> str:
+async def create_task(description: str, done_definition: str, agent_id: str, workflow_id: str, phase_id: int, priority: str = "medium", cwd: str = None, ticket_id: str = None) -> str:
     """Create a new task in Hephaestus.
 
     Args:
         description: What needs to be done
         done_definition: Clear criteria for completion
         agent_id: Your agent ID (REQUIRED - found in your initial prompt under "Your Agent ID:")
+        workflow_id: Your workflow ID (REQUIRED - found in your initial prompt under "Your Workflow ID:")
         phase_id: Phase ID for the task (REQUIRED - MUST specify which workflow phase this task belongs to, e.g., 1, 2, 3)
         priority: Task priority (low/medium/high)
         cwd: Current working directory for the task (optional)
         ticket_id: Associated ticket ID (OPTIONAL for SDK/root tasks, REQUIRED when ticket tracking is enabled for MCP agents)
 
-    CRITICAL: You MUST provide both agent_id AND phase_id for every task.
-    - agent_id: ALWAYS use YOUR agent ID from the prompt header (looks like "6a062184-e189-4d8d-8376-89da987b9996"). 
+    CRITICAL: You MUST provide agent_id, workflow_id, AND phase_id for every task.
+    - agent_id: ALWAYS use YOUR agent ID from the prompt header (looks like "6a062184-e189-4d8d-8376-89da987b9996").
       NEVER use placeholder values like 'agent-mcp' - they will cause authorization failures.
+    - workflow_id: ALWAYS use YOUR workflow ID from the prompt header (looks like "a1b2c3d4-e5f6-7890-abcd-ef1234567890").
     - phase_id: REQUIRED - Specify the workflow phase number (e.g., 1 for Phase 1, 2 for Phase 2, etc.)
 
     IMPORTANT FOR TICKET TRACKING:
@@ -59,6 +61,7 @@ async def create_task(description: str, done_definition: str, agent_id: str, pha
                 "task_description": description,
                 "done_definition": done_definition,
                 "ai_agent_id": agent_id,
+                "workflow_id": workflow_id,
                 "priority": priority,
                 "phase_id": str(phase_id)
             }
@@ -603,6 +606,7 @@ async def send_message(message: str, sender_agent_id: str, recipient_agent_id: s
 @mcp.tool()
 async def create_ticket(
     agent_id: str,
+    workflow_id: str,
     title: str,
     description: str,
     ticket_type: str = "task",
@@ -619,6 +623,7 @@ async def create_ticket(
 
     Args:
         agent_id: Your agent ID (CRITICAL: use YOUR UUID from initial prompt, e.g., "84f15f6c-35b1-4d57-97ac-92a3c0c94d29")
+        workflow_id: Your workflow ID (CRITICAL: use YOUR workflow UUID from initial prompt)
         title: Short, descriptive title for the ticket (3-500 chars)
         description: Detailed description of what needs to be done (min 10 chars)
         ticket_type: Type of ticket (bug/feature/improvement/task/spike) - default: task
@@ -628,7 +633,7 @@ async def create_ticket(
         assigned_agent_id: Optional agent to assign ticket to
         parent_ticket_id: Optional parent ticket for sub-tickets
 
-    CRITICAL: agent_id must be your full UUID from your initial prompt!
+    CRITICAL: Both agent_id and workflow_id must be your actual UUIDs from your initial prompt!
     DO NOT use 'agent' or 'agent-mcp' - it will fail with "Agent not found"!
 
     IMPORTANT: Search for existing tickets before creating to avoid duplicates!
@@ -655,6 +660,7 @@ async def create_ticket(
     try:
         async with httpx.AsyncClient() as client:
             payload = {
+                "workflow_id": workflow_id,
                 "title": title,
                 "description": description,
                 "ticket_type": ticket_type,
@@ -857,6 +863,7 @@ async def add_ticket_comment(
 @mcp.tool()
 async def search_tickets(
     agent_id: str,
+    workflow_id: str,
     query: str,
     search_type: str = "hybrid",
     filters: dict = None,
@@ -869,6 +876,7 @@ async def search_tickets(
 
     Args:
         agent_id: Your agent ID
+        workflow_id: Your workflow ID (REQUIRED - searches within this workflow only)
         query: Search query (natural language, min 3 chars)
         search_type: Search mode (semantic/keyword/hybrid) - DEFAULT: hybrid = 70% semantic + 30% keyword
         filters: Optional filters (dict with keys: status, priority, ticket_type, assigned_agent_id, tags, is_blocked)
@@ -885,6 +893,7 @@ async def search_tickets(
             response = await client.post(
                 f"{HEPHAESTUS_URL}/api/tickets/search",
                 json={
+                    "workflow_id": workflow_id,
                     "query": query,
                     "search_type": search_type,
                     "filters": filters or {},
@@ -1054,6 +1063,7 @@ async def get_ticket(ticket_id: str) -> str:
 @mcp.tool()
 async def get_tickets(
     agent_id: str,
+    workflow_id: str,
     status: str = None,
     ticket_type: str = None,
     priority: str = None,
@@ -1070,6 +1080,7 @@ async def get_tickets(
 
     Args:
         agent_id: Your agent ID
+        workflow_id: Your workflow ID (REQUIRED - lists tickets in this workflow only)
         status: Filter by status
         ticket_type: Filter by type
         priority: Filter by priority
@@ -1083,6 +1094,7 @@ async def get_tickets(
     try:
         async with httpx.AsyncClient() as client:
             params = {
+                "workflow_id": workflow_id,
                 "include_completed": include_completed,
                 "limit": limit,
                 "offset": offset,
@@ -1371,6 +1383,199 @@ async def request_ticket_clarification(
         return f"❌ Error requesting clarification: {str(e)}"
 
 
+# ==================== WORKFLOW MANAGEMENT TOOLS ====================
+
+@mcp.tool()
+async def list_workflow_definitions() -> str:
+    """List all available workflow definitions.
+
+    Returns a list of workflow types (templates) that can be used to start new workflow executions.
+    Each definition includes its name, description, number of phases, and whether it produces a result.
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{HEPHAESTUS_URL}/api/workflow-definitions",
+                timeout=10.0
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                definitions = result.get("definitions", [])
+
+                if not definitions:
+                    return "No workflow definitions loaded"
+
+                def_list = []
+                for d in definitions:
+                    result_indicator = "Yes" if d.get("has_result") else "No"
+                    def_list.append(
+                        f"- {d['id']}: {d['name']} ({d['phases_count']} phases, result: {result_indicator})"
+                    )
+
+                return f"Workflow Definitions:\n" + "\n".join(def_list)
+            else:
+                return f"Failed to get workflow definitions: {response.text}"
+    except Exception as e:
+        return f"Error getting workflow definitions: {str(e)}"
+
+
+@mcp.tool()
+async def list_workflow_executions(status: str = "all") -> str:
+    """List all workflow executions.
+
+    Args:
+        status: Filter by status (all/active/paused/completed/failed) - default: all
+
+    Returns list of running and completed workflow instances with their current stats.
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{HEPHAESTUS_URL}/api/workflow-executions",
+                params={"status": status},
+                timeout=10.0
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                executions = result.get("executions", [])
+
+                if not executions:
+                    return f"No workflow executions found (filter: {status})"
+
+                exec_list = []
+                for e in executions:
+                    status_indicator = {
+                        "active": "[ACTIVE]",
+                        "paused": "[PAUSED]",
+                        "completed": "[COMPLETED]",
+                        "failed": "[FAILED]"
+                    }.get(e["status"], "[UNKNOWN]")
+
+                    stats = e.get("stats", {})
+                    exec_list.append(
+                        f"{status_indicator} {e['id'][:12]}: {e.get('description') or e.get('definition_name')}\n"
+                        f"   Definition: {e.get('definition_name')} | "
+                        f"Tasks: {stats.get('active_tasks', 0)}/{stats.get('total_tasks', 0)} | "
+                        f"Agents: {stats.get('active_agents', 0)}"
+                    )
+
+                return f"Workflow Executions ({status}):\n\n" + "\n\n".join(exec_list)
+            else:
+                return f"Failed to get workflow executions: {response.text}"
+    except Exception as e:
+        return f"Error getting workflow executions: {str(e)}"
+
+
+@mcp.tool()
+async def start_workflow_execution(
+    definition_id: str,
+    description: str,
+    working_directory: str = None
+) -> str:
+    """Start a new workflow execution from a definition.
+
+    Args:
+        definition_id: ID of the workflow definition to use (e.g., "prd-to-software", "bugfix")
+        description: Description of this execution (e.g., "Build URL shortener service")
+        working_directory: Optional working directory for this workflow execution
+
+    Returns:
+        The workflow_id to use for all subsequent operations in this workflow.
+
+    Use list_workflow_definitions() first to see available workflow types.
+
+    Example:
+        # First, see what workflow types are available
+        list_workflow_definitions()
+
+        # Then start a new execution
+        result = start_workflow_execution(
+            definition_id="prd-to-software",
+            description="Build URL shortener from PRD"
+        )
+        # Returns workflow_id to use in create_task, create_ticket, etc.
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            payload = {
+                "definition_id": definition_id,
+                "description": description,
+            }
+            if working_directory:
+                payload["working_directory"] = working_directory
+
+            response = await client.post(
+                f"{HEPHAESTUS_URL}/api/workflow-executions",
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=10.0
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                return f"""Workflow execution started!
+Workflow ID: {result.get('workflow_id', 'unknown')}
+Status: {result.get('status', 'unknown')}
+Message: {result.get('message', '')}
+
+Use this workflow_id in all subsequent create_task and create_ticket calls."""
+            else:
+                return f"Failed to start workflow execution: {response.text}"
+    except Exception as e:
+        return f"Error starting workflow execution: {str(e)}"
+
+
+@mcp.tool()
+async def get_workflow_execution(workflow_id: str) -> str:
+    """Get details of a specific workflow execution.
+
+    Args:
+        workflow_id: The workflow execution ID
+
+    Returns detailed information about the workflow including stats and current activity.
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{HEPHAESTUS_URL}/api/workflow-executions/{workflow_id}",
+                timeout=10.0
+            )
+
+            if response.status_code == 200:
+                e = response.json()
+                stats = e.get("stats", {})
+
+                status_indicator = {
+                    "active": "[ACTIVE]",
+                    "paused": "[PAUSED]",
+                    "completed": "[COMPLETED]",
+                    "failed": "[FAILED]"
+                }.get(e["status"], "[UNKNOWN]")
+
+                return f"""{status_indicator} Workflow Execution Details
+ID: {e['id']}
+Definition: {e.get('definition_name', 'N/A')} ({e.get('definition_id', 'N/A')})
+Description: {e.get('description', 'N/A')}
+Status: {e['status']}
+Working Directory: {e.get('working_directory', 'N/A')}
+Created: {e.get('created_at', 'N/A')}
+
+Stats:
+  Total Tasks: {stats.get('total_tasks', 0)}
+  Active Tasks: {stats.get('active_tasks', 0)}
+  Done Tasks: {stats.get('done_tasks', 0)}
+  Failed Tasks: {stats.get('failed_tasks', 0)}
+  Active Agents: {stats.get('active_agents', 0)}"""
+            elif response.status_code == 404:
+                return f"Workflow not found: {workflow_id}"
+            else:
+                return f"Failed to get workflow execution: {response.text}"
+    except Exception as e:
+        return f"Error getting workflow execution: {str(e)}"
+
+
 # Run the MCP server
 if __name__ == "__main__":
     print("🚀 Starting Claude MCP Client for Hephaestus...")
@@ -1403,6 +1608,11 @@ if __name__ == "__main__":
     print("  - get_commit_diff: Get detailed git diff for commit (for Git Diff Window)")
     print("  - resolve_ticket: Mark ticket as resolved (auto-unblocks dependent tickets)")
     print("  - request_ticket_clarification: Request LLM arbitration for conflicting requirements (PREVENTS TASK LOOPS!)")
+    print("\n🔄 Workflow Management:")
+    print("  - list_workflow_definitions: List available workflow types")
+    print("  - list_workflow_executions: List all workflow instances")
+    print("  - start_workflow_execution: Start a new workflow")
+    print("  - get_workflow_execution: Get workflow details")
     print("\n💡 Ticket Tracking Tips:")
     print("  - Search BEFORE creating to avoid duplicates (use search_tickets with hybrid mode)")
     print("  - Use get_ticket() with the EXACT ticket ID to see full details (description, comments, history)")

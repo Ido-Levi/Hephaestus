@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { apiService } from '@/services/api';
 import { useWebSocket } from '@/context/WebSocketContext';
+import ExecutionSelector from '@/components/ExecutionSelector';
 import ObservabilityPanel from '@/components/ObservabilityPanel';
 import ObservabilityControls from '@/components/ObservabilityControls';
 import ObservabilitySidebar from '@/components/ObservabilitySidebar';
@@ -317,6 +318,9 @@ const Observability: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-3">
+            {/* Workflow Selector */}
+            <ExecutionSelector />
+
             {/* Connection status */}
             <div className="flex items-center space-x-2">
               {stats.connected > 0 ? (

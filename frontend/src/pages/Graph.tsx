@@ -17,6 +17,8 @@ import { GitBranch, Bot, FileText, X, RefreshCw, Layers, ArrowRight, Play, Pause
 import { apiService } from '@/services/api';
 import { GraphNode, GraphEdge, PhaseInfo } from '@/types';
 import { useWebSocket } from '@/context/WebSocketContext';
+import { useWorkflow } from '@/context/WorkflowContext';
+import ExecutionSelector from '@/components/ExecutionSelector';
 import StatusBadge from '@/components/StatusBadge';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import RealTimeAgentOutput from '@/components/RealTimeAgentOutput';
@@ -239,6 +241,7 @@ const Graph: React.FC = () => {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState(15);
   const { subscribe } = useWebSocket();
+  const { selectedExecution } = useWorkflow();
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['graph'],
@@ -634,11 +637,18 @@ const Graph: React.FC = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-800">Graph Visualization</h1>
-            <p className="text-gray-600 mt-1">Agent and task flow through phases</p>
+            <p className="text-gray-600 mt-1">
+              {selectedExecution ? (
+                <>Graph for: {selectedExecution.description || selectedExecution.definition_name}</>
+              ) : (
+                'Agent and task flow through phases'
+              )}
+            </p>
           </div>
 
           {/* Refresh Controls */}
           <div className="flex items-center gap-3">
+            <ExecutionSelector />
             <div className="flex items-center gap-2 text-sm">
               <span className="text-gray-600">Auto-refresh:</span>
               <select

@@ -17,6 +17,8 @@ import {
   CommitDiff,
   TicketSearchResult,
   BlockedTask,
+  WorkflowDefinition,
+  WorkflowExecution,
 } from '@/types';
 
 interface ResultQueryParams {
@@ -39,18 +41,51 @@ const api = axios.create({
 });
 
 export const apiService = {
+  // Workflow Definitions and Executions
+  listWorkflowDefinitions: async (): Promise<WorkflowDefinition[]> => {
+    const { data } = await api.get('/workflow-definitions');
+    return data.definitions || [];
+  },
+
+  listWorkflowExecutions: async (status: string = 'all'): Promise<WorkflowExecution[]> => {
+    const { data } = await api.get(`/workflow-executions?status=${status}`);
+    return data.executions || [];
+  },
+
+  startWorkflowExecution: async (
+    definitionId: string,
+    description: string,
+    workingDirectory?: string,
+    launchParams?: Record<string, any>
+  ): Promise<{ workflow_id: string }> => {
+    const { data } = await api.post('/workflow-executions', {
+      definition_id: definitionId,
+      description,
+      working_directory: workingDirectory,
+      launch_params: launchParams,
+    });
+    return data;
+  },
+
+  getWorkflowExecution: async (workflowId: string): Promise<WorkflowExecution & { phases: any[] }> => {
+    const { data } = await api.get(`/workflow-executions/${workflowId}`);
+    return data;
+  },
+
   // Dashboard
-  getDashboardStats: async (): Promise<DashboardStats> => {
-    const { data } = await api.get('/dashboard/stats');
+  getDashboardStats: async (workflowId?: string): Promise<DashboardStats> => {
+    const params = workflowId ? `?workflow_id=${workflowId}` : '';
+    const { data } = await api.get(`/dashboard/stats${params}`);
     return data;
   },
 
   // Tasks
-  getTasks: async (skip = 0, limit = 50, status?: string): Promise<Task[]> => {
+  getTasks: async (skip = 0, limit = 50, status?: string, workflowId?: string): Promise<Task[]> => {
     const params = new URLSearchParams();
     params.append('skip', skip.toString());
     params.append('limit', limit.toString());
     if (status) params.append('status', status);
+    if (workflowId) params.append('workflow_id', workflowId);
 
     const { data } = await api.get(`/tasks?${params}`);
     return data;
@@ -221,7 +256,7 @@ export const apiService = {
   },
 
   // Queue management endpoints
-  getQueueStatus: async (): Promise<{
+  getQueueStatus: async (workflowId?: string): Promise<{
     active_agents: number;
     max_concurrent_agents: number;
     queued_tasks_count: number;
@@ -237,7 +272,8 @@ export const apiService = {
     slots_available: number;
     at_capacity: boolean;
   }> => {
-    const { data } = await api.get('/queue_status');
+    const params = workflowId ? `?workflow_id=${workflowId}` : '';
+    const { data } = await api.get(`/queue_status${params}`);
     return data;
   },
 
@@ -469,8 +505,9 @@ export const apiService = {
   },
 
   // Blocked Tasks
-  getBlockedTasks: async (): Promise<BlockedTask[]> => {
-    const { data } = await api.get('/blocked-tasks');
+  getBlockedTasks: async (workflowId?: string): Promise<BlockedTask[]> => {
+    const params = workflowId ? `?workflow_id=${workflowId}` : '';
+    const { data } = await api.get(`/blocked-tasks${params}`);
     return data;
   },
 

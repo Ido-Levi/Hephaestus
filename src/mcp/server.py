@@ -60,6 +60,7 @@ class CreateTaskRequest(BaseModel):
     task_description: str = Field(..., description="Raw task description")
     done_definition: str = Field(..., description="What constitutes completion")
     ai_agent_id: str = Field(..., description="ID of requesting agent")
+    workflow_id: str = Field(..., description="ID of the workflow this task belongs to")
     priority: Optional[str] = Field(default="medium", pattern="^(low|medium|high)$")
     parent_task_id: Optional[str] = Field(default=None, description="Parent task ID for sub-tasks")
     phase_id: Optional[str] = Field(default=None, description="Phase ID for workflow-based tasks")
@@ -210,7 +211,7 @@ class BroadcastMessageRequest(BaseModel):
 class CreateTicketRequest(BaseModel):
     """Request model for creating a ticket."""
 
-    workflow_id: Optional[str] = Field(default=None, description="ID of the workflow (auto-detected from agent's task if not provided)")
+    workflow_id: str = Field(..., description="ID of the workflow this ticket belongs to")
     title: str = Field(..., min_length=3, max_length=500, description="Short, descriptive title")
     description: str = Field(..., min_length=10, description="Detailed description")
     ticket_type: str = Field(default="task", description="Type of ticket (bug, feature, improvement, task, spike)")
@@ -295,7 +296,7 @@ class AddCommentResponse(BaseModel):
 class SearchTicketsRequest(BaseModel):
     """Request model for searching tickets."""
 
-    workflow_id: Optional[str] = Field(default=None, description="ID of the workflow (auto-detected from agent's task if not provided)")
+    workflow_id: str = Field(..., description="ID of the workflow to search tickets in")
     query: str = Field(..., min_length=3, description="Search query (natural language)")
     search_type: str = Field(default="hybrid", pattern="^(semantic|keyword|hybrid)$", description="Search type (default: hybrid)")
     filters: Dict[str, Any] = Field(default_factory=dict, description="Optional filters (status, priority, type, etc.)")
@@ -475,6 +476,26 @@ class RejectTicketResponse(BaseModel):
     message: str
 
 
+# Workflow Management Request/Response Models
+class RegisterWorkflowDefinitionRequest(BaseModel):
+    """Request model for registering a workflow definition."""
+
+    id: str = Field(..., description="Unique ID for the workflow definition")
+    name: str = Field(..., description="Human-readable name")
+    description: str = Field(default="", description="Description of the workflow")
+    phases_config: List[Dict[str, Any]] = Field(..., description="Phase configurations")
+    workflow_config: Optional[Dict[str, Any]] = Field(default=None, description="Workflow configuration")
+
+
+class StartWorkflowRequest(BaseModel):
+    """Request model for starting a workflow execution."""
+
+    definition_id: str = Field(..., description="ID of the workflow definition to execute")
+    description: str = Field(..., description="Description/name of this workflow execution")
+    working_directory: Optional[str] = Field(default=None, description="Working directory for the workflow")
+    launch_params: Optional[Dict[str, Any]] = Field(default=None, description="Parameters from launch template to substitute into phases")
+
+
 class PendingReviewCountResponse(BaseModel):
     """Response model for pending review count."""
 
@@ -648,30 +669,6 @@ class ServerState:
 server_state = ServerState()
 
 
-def get_single_active_workflow() -> Optional[str]:
-    """
-    Get the ID of the single active workflow in the system.
-
-    Returns:
-        workflow_id if exactly one workflow exists, None otherwise
-    """
-    try:
-        with get_db() as session:
-            workflows = session.query(Workflow).filter(
-                Workflow.status.in_(["active", "paused"])
-            ).all()
-
-            if len(workflows) == 1:
-                return workflows[0].id
-            elif len(workflows) == 0:
-                logger.warning("No active workflows found in the system")
-                return None
-            else:
-                logger.warning(f"Multiple workflows found ({len(workflows)}), cannot auto-select")
-                return None
-    except Exception as e:
-        logger.error(f"Error getting single active workflow: {e}")
-        return None
 
 
 @app.on_event("startup")
@@ -731,10 +728,9 @@ async def startup_event():
             phases_config = PhaseLoader.load_phases_config(phases_folder)
             logger.info(f"Loaded phases config: enable_tickets={phases_config.enable_tickets}, has_result={phases_config.has_result}")
 
-            # Initialize workflow in database
-            logger.info("Initializing workflow in database...")
-            workflow_id = server_state.phase_manager.initialize_workflow(workflow_def, phases_config)
-            logger.info(f"Initialized workflow with ID: {workflow_id}")
+            # Workflow initialization is handled by SDK's start_workflow() call
+            # The phase definitions are loaded but workflow execution is created on-demand
+            logger.info("Phases loaded successfully - workflow execution will be created via start_workflow() call")
 
             # Log phase names
             logger.info("Loaded phases:")
@@ -869,14 +865,14 @@ async def process_queue():
             else:
                 logger.warning(f"[QUEUE_ENRICHMENT] ✗ Skipping phase context (phase_id={next_task.phase_id}, phase_manager={bool(server_state.phase_manager)})")
 
-            # BUG FIX: If we don't have workflow_id from phase, try to get it from single active workflow
+            # Use the task's workflow_id if not obtained from phase context
             if not workflow_id:
-                logger.info(f"[QUEUE_ENRICHMENT] No workflow_id from phase context - trying get_single_active_workflow()")
-                workflow_id = get_single_active_workflow()
+                logger.info(f"[QUEUE_ENRICHMENT] No workflow_id from phase context - using task's workflow_id")
+                workflow_id = next_task.workflow_id
                 if workflow_id:
-                    logger.info(f"[QUEUE_ENRICHMENT] ✓ Got workflow_id from single active workflow: {workflow_id}")
+                    logger.info(f"[QUEUE_ENRICHMENT] ✓ Got workflow_id from task: {workflow_id}")
                 else:
-                    logger.warning(f"[QUEUE_ENRICHMENT] ✗ Could not get workflow_id from single active workflow")
+                    logger.warning(f"[QUEUE_ENRICHMENT] ✗ Task has no workflow_id set")
 
             # Retrieve RAG memories for enrichment
             logger.info(f"[QUEUE_ENRICHMENT] Retrieving RAG memories for enrichment")
@@ -1059,6 +1055,7 @@ async def process_queue():
                     done_definition=refreshed_task.done_definition,
                     phase_id=phase_id_for_agent or refreshed_task.phase_id,  # Use UUID if converted
                     created_by_agent_id=refreshed_task.created_by_agent_id,
+                    workflow_id=refreshed_task.workflow_id,  # CRITICAL: Include workflow_id
                 )
                 task_for_agent = temp_task
                 logger.info(f"[QUEUE_AGENT_CREATE] ✓ Created temp task object for agent (phase_id={temp_task.phase_id})")
@@ -1224,7 +1221,7 @@ async def create_task(
             parent_task_id=request.parent_task_id,
             created_by_agent_id=agent_id,
             phase_id=request.phase_id,
-            workflow_id=None,
+            workflow_id=request.workflow_id,  # Use workflow_id from request
             estimated_complexity=5,  # Default value
             ticket_id=request.ticket_id,  # Store associated ticket ID
         )
@@ -1378,7 +1375,8 @@ async def create_task(
                 if task:
                     task.enriched_description = enriched_task["enriched_description"]
                     task.phase_id = phase_id
-                    task.workflow_id = workflow_id
+                    # Use workflow_id from phase context, falling back to request's workflow_id
+                    task.workflow_id = workflow_id or request.workflow_id
                     task.estimated_complexity = enriched_task.get("estimated_complexity", 5)
 
                     # Check if phase has validation enabled and inherit it
@@ -1401,6 +1399,7 @@ async def create_task(
                         "enriched_description": enriched_task["enriched_description"],
                         "done_definition": request.done_definition,
                         "phase_id": phase_id,
+                        "workflow_id": request.workflow_id,  # CRITICAL: Include workflow_id
                     }
                     session.close()
 
@@ -1490,6 +1489,7 @@ async def create_task(
                         enriched_description=task_data["enriched_description"],
                         done_definition=task_data["done_definition"],
                         phase_id=task_data["phase_id"],
+                        workflow_id=task_data["workflow_id"],  # CRITICAL: Include workflow_id
                         created_by_agent_id=agent_id,  # Important: Set the parent agent ID
                     )
 
@@ -2475,43 +2475,9 @@ async def create_ticket_endpoint(
     logger.info(f"[TICKET_CREATE] Tags: {request.tags}")
 
     try:
-        # Auto-detect workflow_id from agent's current task if not provided
+        # workflow_id is now required in the request
         workflow_id = request.workflow_id
-        if not workflow_id:
-            logger.info(f"[TICKET_CREATE] No workflow_id provided, attempting auto-detection...")
-
-            # Try to get from agent's current task first
-            with get_db() as session:
-                agent = session.query(Agent).filter_by(id=agent_id).first()
-                logger.info(f"[TICKET_CREATE] Agent lookup: found={agent is not None}")
-                if agent:
-                    logger.info(f"[TICKET_CREATE] Agent.current_task_id: {agent.current_task_id}")
-
-                if agent and agent.current_task_id:
-                    task = session.query(Task).filter_by(id=agent.current_task_id).first()
-                    logger.info(f"[TICKET_CREATE] Task lookup: found={task is not None}")
-                    if task:
-                        logger.info(f"[TICKET_CREATE] Task.workflow_id: {task.workflow_id}")
-
-                    if task and task.workflow_id:
-                        workflow_id = task.workflow_id
-                        logger.info(f"[TICKET_CREATE] ✅ Auto-detected workflow_id from task: {workflow_id}")
-
-            # If still no workflow_id, try to get the single active workflow
-            if not workflow_id:
-                logger.info(f"[TICKET_CREATE] Could not detect from task, trying single active workflow...")
-                workflow_id = get_single_active_workflow()
-                if workflow_id:
-                    logger.info(f"[TICKET_CREATE] ✅ Using single active workflow: {workflow_id}")
-                else:
-                    logger.error(f"[TICKET_CREATE] ❌ No single active workflow found")
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Could not determine workflow_id: no active workflows found or multiple workflows exist. "
-                               "Please ensure you have exactly one active workflow."
-                    )
-        else:
-            logger.info(f"[TICKET_CREATE] Using provided workflow_id: {workflow_id}")
+        logger.info(f"[TICKET_CREATE] Using workflow_id: {workflow_id}")
 
         logger.info(f"[TICKET_CREATE] Calling TicketService.create_ticket with workflow_id={workflow_id}")
         result = await TicketService.create_ticket(
@@ -2737,30 +2703,9 @@ async def search_tickets_endpoint(
     logger.info(f"Agent {agent_id} searching tickets: query='{request.query}', type={request.search_type}")
 
     try:
-        # Auto-detect workflow_id from agent's current task if not provided
+        # workflow_id is now required in the request
         workflow_id = request.workflow_id
-        if not workflow_id:
-            # Try to get from agent's current task first
-            with get_db() as session:
-                agent = session.query(Agent).filter_by(id=agent_id).first()
-                if agent and agent.current_task_id:
-                    task = session.query(Task).filter_by(id=agent.current_task_id).first()
-                    if task and task.workflow_id:
-                        workflow_id = task.workflow_id
-                        logger.info(f"Auto-detected workflow_id {workflow_id} from agent's task {task.id}")
-
-            # If still no workflow_id, try to get the single active workflow
-            if not workflow_id:
-                logger.info(f"Could not detect workflow_id from task, trying single active workflow...")
-                workflow_id = get_single_active_workflow()
-                if workflow_id:
-                    logger.info(f"Using single active workflow: {workflow_id}")
-                else:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Could not determine workflow_id: no active workflows found or multiple workflows exist. "
-                               "Please ensure you have exactly one active workflow."
-                    )
+        logger.info(f"Searching in workflow: {workflow_id}")
 
         start_time = time.time()
 
@@ -2945,8 +2890,8 @@ async def get_ticket_stats_endpoint(
 
 @app.get("/api/tickets", response_model=GetTicketsResponse)
 async def get_tickets_endpoint(
+    workflow_id: str,  # Now required
     agent_id: str = Header(..., alias="X-Agent-ID"),
-    workflow_id: Optional[str] = None,
     status: Optional[str] = None,
     ticket_type: Optional[str] = None,
     priority: Optional[str] = None,
@@ -2960,30 +2905,7 @@ async def get_tickets_endpoint(
     """Get/list tickets with filtering and pagination."""
 
     try:
-        # Auto-detect workflow_id from agent's current task if not provided
-        if not workflow_id:
-            # Try to get from agent's current task first
-            with get_db() as session:
-                agent = session.query(Agent).filter_by(id=agent_id).first()
-                if agent and agent.current_task_id:
-                    task = session.query(Task).filter_by(id=agent.current_task_id).first()
-                    if task and task.workflow_id:
-                        workflow_id = task.workflow_id
-                        logger.info(f"Auto-detected workflow_id {workflow_id} from agent's task {task.id}")
-
-            # If still no workflow_id, try to get the single active workflow
-            if not workflow_id:
-                logger.info(f"Could not detect workflow_id from task, trying single active workflow...")
-                workflow_id = get_single_active_workflow()
-                if workflow_id:
-                    logger.info(f"Using single active workflow: {workflow_id}")
-                else:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Could not determine workflow_id: no active workflows found or multiple workflows exist. "
-                               "Please ensure you have exactly one active workflow."
-                    )
-
+        # workflow_id is now required
         logger.info(f"Agent {agent_id} fetching tickets for workflow {workflow_id}")
 
         # Build filters dict, only including non-None values
@@ -4227,11 +4149,14 @@ async def list_tools():
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "task_description": {"type": "string"},
-                        "done_definition": {"type": "string"},
-                        "priority": {"type": "string", "enum": ["low", "medium", "high"]}
+                        "task_description": {"type": "string", "description": "Description of the task"},
+                        "done_definition": {"type": "string", "description": "What constitutes completion"},
+                        "workflow_id": {"type": "string", "description": "ID of the workflow execution this task belongs to (REQUIRED)"},
+                        "phase_id": {"type": "string", "description": "Phase ID for workflow-based tasks"},
+                        "priority": {"type": "string", "enum": ["low", "medium", "high"]},
+                        "ticket_id": {"type": "string", "description": "Associated ticket ID"}
                     },
-                    "required": ["task_description", "done_definition"]
+                    "required": ["task_description", "done_definition", "workflow_id"]
                 }
             },
             {
@@ -4300,6 +4225,193 @@ async def list_tools():
     }
 
 
+# ==================== WORKFLOW MANAGEMENT ENDPOINTS ====================
+
+@app.get("/api/workflow-definitions")
+async def list_workflow_definitions():
+    """List all loaded workflow definitions."""
+    definitions = server_state.phase_manager.list_definitions()
+    return {
+        "definitions": [
+            {
+                "id": d.id,
+                "name": d.name,
+                "description": d.description,
+                "phases_count": len(d.phases_config) if d.phases_config else 0,
+                "has_result": (d.workflow_config or {}).get("has_result", False),
+                "created_at": d.created_at.isoformat() if d.created_at else None,
+                "launch_template": (d.workflow_config or {}).get("launch_template")
+            }
+            for d in definitions
+        ]
+    }
+
+
+@app.post("/api/workflow-definitions")
+async def register_workflow_definition(request: RegisterWorkflowDefinitionRequest):
+    """Register a workflow definition."""
+    logger.info(f"Registering workflow definition: {request.id}")
+    try:
+        server_state.phase_manager.register_definition(
+            definition_id=request.id,
+            name=request.name,
+            description=request.description,
+            phases_config=request.phases_config,
+            workflow_config=request.workflow_config
+        )
+        logger.info(f"Successfully registered workflow definition: {request.id}")
+        return {
+            "id": request.id,
+            "name": request.name,
+            "status": "registered",
+            "message": f"Workflow definition '{request.name}' registered successfully"
+        }
+    except Exception as e:
+        logger.error(f"Failed to register workflow definition {request.id}: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/workflow-executions")
+async def list_workflow_executions(status: str = "all"):
+    """List all workflow executions."""
+    executions = server_state.phase_manager.list_active_executions(status)
+    return {
+        "executions": [
+            {
+                "id": e.id,
+                "definition_id": e.definition_id,
+                "definition_name": e.definition.name if e.definition else None,
+                "description": e.description,
+                "status": e.status,
+                "created_at": e.created_at.isoformat() if e.created_at else None,
+                "working_directory": e.working_directory,
+                # Add stats
+                "stats": server_state.phase_manager.get_execution_stats(e.id)
+            }
+            for e in executions
+        ]
+    }
+
+
+@app.post("/api/workflow-executions")
+async def start_workflow_execution(request: StartWorkflowRequest):
+    """Start a new workflow execution from a definition."""
+    logger.info(f"Starting workflow execution: definition={request.definition_id}, desc={request.description}, launch_params={request.launch_params}")
+    try:
+        # start_execution now returns (workflow_id, initial_task_info)
+        result = server_state.phase_manager.start_execution(
+            definition_id=request.definition_id,
+            description=request.description,
+            working_directory=request.working_directory,
+            launch_params=request.launch_params
+        )
+
+        # Handle both old (just workflow_id) and new (tuple) return formats
+        if isinstance(result, tuple):
+            workflow_id, initial_task_info = result
+        else:
+            workflow_id = result
+            initial_task_info = None
+
+        logger.info(f"Successfully started workflow execution: {workflow_id}")
+
+        # If there's an initial task to create, create it through the proper flow
+        if initial_task_info:
+            logger.info(f"Creating initial Phase 1 task for workflow {workflow_id}")
+            try:
+                # Create the task using internal task creation
+                # This mimics what /create_task does but internally
+                task_request = CreateTaskRequest(
+                    task_description=initial_task_info["task_description"],
+                    done_definition="Complete the initial phase task as described in the prompt",
+                    ai_agent_id="main-session-agent",  # UI-launched task
+                    priority=initial_task_info.get("priority", "high"),
+                    phase_id=initial_task_info.get("phase_id", "1"),
+                    workflow_id=workflow_id,
+                )
+
+                # Call the create_task endpoint handler directly
+                # Use "main-session-agent" as the creator since this is a UI-launched task
+                task_response = await create_task(
+                    request=task_request,
+                    agent_id="main-session-agent"
+                )
+                logger.info(f"Created initial task {task_response.task_id} for workflow {workflow_id}")
+            except Exception as task_error:
+                logger.error(f"Failed to create initial task for workflow {workflow_id}: {task_error}")
+                # Don't fail the whole workflow creation, just log the error
+
+        return {
+            "workflow_id": workflow_id,
+            "status": "active",
+            "message": f"Started workflow execution: {request.description}"
+        }
+    except ValueError as e:
+        logger.error(f"ValueError starting workflow: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error starting workflow execution: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/workflow-executions/{workflow_id}")
+async def get_workflow_execution(workflow_id: str):
+    """Get details of a specific workflow execution."""
+    workflow = server_state.phase_manager.get_workflow(workflow_id)
+    if not workflow:
+        raise HTTPException(status_code=404, detail=f"Workflow {workflow_id} not found")
+
+    stats = server_state.phase_manager.get_execution_stats(workflow_id)
+
+    # Get phases for this workflow execution
+    phases = server_state.phase_manager.get_phases_for_workflow(workflow_id)
+
+    # Get phase stats
+    session = server_state.phase_manager.db_manager.get_session()
+    try:
+        phases_data = []
+        for phase in phases:
+            # Count tasks in this phase
+            total_tasks = session.query(Task).filter_by(phase_id=phase.id).count()
+            completed_tasks = session.query(Task).filter_by(phase_id=phase.id, status='done').count()
+            active_tasks = session.query(Task).filter_by(phase_id=phase.id, status='in_progress').count()
+            pending_tasks = session.query(Task).filter_by(phase_id=phase.id, status='pending').count()
+
+            # Count active agents working on tasks in this phase
+            active_agents = session.query(Agent).join(
+                Task, Agent.current_task_id == Task.id
+            ).filter(
+                Task.phase_id == phase.id,
+                Agent.status.in_(['working', 'idle'])
+            ).count()
+
+            phases_data.append({
+                "id": phase.id,
+                "order": phase.order,
+                "name": phase.name,
+                "description": phase.description,
+                "active_agents": active_agents,
+                "total_tasks": total_tasks,
+                "completed_tasks": completed_tasks,
+                "active_tasks": active_tasks,
+                "pending_tasks": pending_tasks
+            })
+    finally:
+        session.close()
+
+    return {
+        "id": workflow.id,
+        "definition_id": workflow.definition_id,
+        "definition_name": workflow.definition.name if workflow.definition else None,
+        "description": workflow.description,
+        "status": workflow.status,
+        "created_at": workflow.created_at.isoformat() if workflow.created_at else None,
+        "working_directory": workflow.working_directory,
+        "stats": stats,
+        "phases": phases_data
+    }
+
+
 @app.post("/tools/execute")
 async def execute_tool(request: Dict[str, Any]):
     """Execute an MCP tool."""
@@ -4308,12 +4420,19 @@ async def execute_tool(request: Dict[str, Any]):
 
     if tool_name == "create_task":
         # Forward to create_task endpoint
+        workflow_id = arguments.get("workflow_id")
+        if not workflow_id:
+            raise HTTPException(status_code=400, detail="workflow_id is required for create_task")
+
         return await create_task(
             CreateTaskRequest(
                 task_description=arguments.get("task_description"),
                 done_definition=arguments.get("done_definition"),
                 ai_agent_id="mcp-claude",
-                priority=arguments.get("priority", "medium")
+                workflow_id=workflow_id,
+                phase_id=arguments.get("phase_id"),
+                priority=arguments.get("priority", "medium"),
+                ticket_id=arguments.get("ticket_id")
             ),
             agent_id="mcp-claude"
         )
@@ -4334,15 +4453,10 @@ async def execute_tool(request: Dict[str, Any]):
         # Create ticket using TicketService
         from src.services.ticket_service import TicketService
 
-        # Get current workflow_id
-        session = server_state.db_manager.get_session()
-        try:
-            workflow = session.query(Workflow).filter(Workflow.status == "active").first()
-            if not workflow:
-                raise HTTPException(status_code=400, detail="No active workflow found")
-            workflow_id = workflow.id
-        finally:
-            session.close()
+        # workflow_id is now required
+        workflow_id = arguments.get("workflow_id")
+        if not workflow_id:
+            raise HTTPException(status_code=400, detail="workflow_id is required")
 
         result = await TicketService.create_ticket(
             workflow_id=workflow_id,

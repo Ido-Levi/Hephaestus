@@ -9,6 +9,7 @@ import { PhaseBadge } from '@/components/PhaseBadge';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import QueueSection from '@/components/QueueSection';
 import { useWebSocket } from '@/context/WebSocketContext';
+import { useWorkflow } from '@/context/WorkflowContext';
 import { formatDistanceToNow } from 'date-fns';
 import TaskFilterBar, { TaskFilters } from '@/components/TaskFilterBar';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -174,20 +175,23 @@ const Tasks: React.FC = () => {
   const [newTaskIds, setNewTaskIds] = useState<Set<string>>(new Set());
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const { subscribe } = useWebSocket();
+  const { selectedExecutionId, selectedExecution } = useWorkflow();
 
   // Debounce search text for performance
   const debouncedSearchText = useDebounce(filters.searchText, 300);
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['tasks'],
-    queryFn: () => apiService.getTasks(0, 10000),
+    queryKey: ['tasks', selectedExecutionId],
+    queryFn: () => apiService.getTasks(0, 10000, undefined, selectedExecutionId || undefined),
     refetchInterval: 10000,
+    enabled: !!selectedExecutionId,
   });
 
   const { data: blockedTasks } = useQuery({
-    queryKey: ['blocked-tasks'],
-    queryFn: apiService.getBlockedTasks,
+    queryKey: ['blocked-tasks', selectedExecutionId],
+    queryFn: () => apiService.getBlockedTasks(selectedExecutionId || undefined),
     refetchInterval: 5000,
+    enabled: !!selectedExecutionId,
   });
 
   useEffect(() => {
@@ -302,27 +306,67 @@ const Tasks: React.FC = () => {
     });
   }, [tasks, debouncedSearchText, filters]);
 
+  if (!selectedExecutionId) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800">Tasks</h1>
+            <p className="text-gray-600 mt-1">All system tasks and their status</p>
+          </div>
+        </div>
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-12 text-center">
+          <p className="text-gray-500 text-lg">Select a workflow from the sidebar to view tasks</p>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800">Tasks</h1>
+            <p className="text-gray-600 mt-1">All system tasks and their status</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-        <p className="text-red-600">Failed to load tasks</p>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800">Tasks</h1>
+            <p className="text-gray-600 mt-1">All system tasks and their status</p>
+          </div>
+        </div>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <p className="text-red-600">Failed to load tasks</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-800">Tasks</h1>
-        <p className="text-gray-600 mt-1">All system tasks and their status</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800">Tasks</h1>
+          <p className="text-gray-600 mt-1">
+            {selectedExecution ? (
+              <>Workflow: {selectedExecution.description || selectedExecution.definition_name}</>
+            ) : (
+              'All system tasks and their status'
+            )}
+          </p>
+        </div>
       </div>
 
       {/* Queue Section */}

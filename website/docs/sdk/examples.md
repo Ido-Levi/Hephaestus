@@ -1,6 +1,6 @@
 # SDK Examples
 
-The best way to learn the SDK is to see it in action. Let's break down `run_prd_workflow.py` — a complete, production-ready workflow that builds software from a Product Requirements Document.
+The best way to learn the SDK is to see it in action. Let's break down `run_hephaestus_dev.py` — a complete, production-ready setup that registers multiple workflows and lets users launch them from the UI.
 
 ## The Complete Example
 
@@ -18,11 +18,13 @@ from dotenv import load_dotenv
 # Add project to path so we can import from example_workflows
 sys.path.insert(0, str(Path(__file__).parent))
 
-# Import the phase definitions
-from example_workflows.prd_to_software.phases import PRD_PHASES, PRD_WORKFLOW_CONFIG
+# Import workflow definitions (phases + config + launch templates)
+from example_workflows.prd_to_software.phases import PRD_PHASES, PRD_WORKFLOW_CONFIG, PRD_LAUNCH_TEMPLATE
+from example_workflows.bug_fix.phases import BUG_FIX_PHASES, BUG_FIX_WORKFLOW_CONFIG, BUG_FIX_LAUNCH_TEMPLATE
 
 # Import the SDK
 from src.sdk import HephaestusSDK
+from src.sdk.models import WorkflowDefinition
 
 # Load environment variables from .env file
 load_dotenv()
@@ -30,7 +32,8 @@ load_dotenv()
 
 **What's happening:**
 - Path manipulation lets us import from `example_workflows/`
-- We import pre-defined phases (someone already wrote them)
+- We import pre-defined phases, configs, AND launch templates
+- Each workflow comes as a bundle: phases + config + launch template
 - Load API keys and config from `.env`
 
 ### 2. Parse Command Line Arguments
@@ -114,17 +117,47 @@ prd_file = find_prd_file(working_directory, args.prd)
 
 The script automatically finds your PRD by looking for common filenames.
 
-### 6. Initialize the SDK
+### 6. Create Workflow Definitions
 
-This is the core of the SDK usage:
+Bundle your phases, config, and launch template into `WorkflowDefinition` objects:
+
+```python
+# Create workflow definitions
+prd_definition = WorkflowDefinition(
+    id="prd-to-software",
+    name="PRD to Software Builder",
+    phases=PRD_PHASES,
+    config=PRD_WORKFLOW_CONFIG,
+    description="Build working software from a Product Requirements Document",
+    launch_template=PRD_LAUNCH_TEMPLATE,
+)
+
+bug_fix_definition = WorkflowDefinition(
+    id="bug-fix",
+    name="Bug Fix",
+    phases=BUG_FIX_PHASES,
+    config=BUG_FIX_WORKFLOW_CONFIG,
+    description="Analyze, fix, and verify bug fixes",
+    launch_template=BUG_FIX_LAUNCH_TEMPLATE,
+)
+```
+
+**What each field does:**
+- `id`: Unique identifier used in API calls (e.g., "bug-fix")
+- `name`: Human-readable name shown in UI
+- `phases`: List of Phase objects defining the workflow stages
+- `config`: WorkflowConfig with result handling settings
+- `description`: Shows in the workflow selector
+- `launch_template`: Defines the UI form for launching (optional but recommended)
+
+### 7. Initialize the SDK
+
+Now pass your workflow definitions to the SDK:
 
 ```python
 sdk = HephaestusSDK(
-    # Phase definitions (Python objects)
-    phases=PRD_PHASES,
-
-    # Workflow configuration (result handling)
-    workflow_config=PRD_WORKFLOW_CONFIG,
+    # Multi-workflow mode - register all your workflow types
+    workflow_definitions=[prd_definition, bug_fix_definition],
 
     # Database
     database_path=db_path,
@@ -150,19 +183,18 @@ sdk = HephaestusSDK(
     project_root=working_directory,
     auto_commit=True,
     conflict_resolution="newest_file_wins",
-    worktree_branch_prefix="prd-builder-",
+    worktree_branch_prefix="example-",
 )
 ```
 
 **Important notes:**
-- `phases=PRD_PHASES`: Pass the Python phase objects
-- `workflow_config=PRD_WORKFLOW_CONFIG`: Configure result handling
+- `workflow_definitions=[...]`: Pass all your workflow types
 - LLM configuration (provider, model) comes from `hephaestus_config.yaml`, not SDK params
-- `default_cli_tool`: Optional parameter to override the CLI tool (defaults to config file setting)
+- `default_cli_tool`: Optional parameter to override the CLI tool
 - Git paths must match: `main_repo_path == project_root == working_directory`
 - `auto_commit=True`: Agent changes are automatically committed
 
-### 7. Start Services
+### 8. Start Services
 
 ```python
 try:
@@ -179,82 +211,86 @@ This starts:
 
 Waits up to 30 seconds for health checks to pass.
 
-### 8. Verify Phases Loaded
+### 9. Verify Workflow Definitions Loaded
 
 ```python
-print(f"[Phases] Loaded {len(sdk.phases_map)} phases:")
-for phase_id, phase in sorted(sdk.phases_map.items()):
-    print(f"  - Phase {phase_id}: {phase.name}")
+definitions = sdk.list_workflow_definitions()
+print(f"[Workflows] Loaded {len(definitions)} workflow definitions:")
+for defn in definitions:
+    has_template = " (with launch template)" if defn.launch_template else ""
+    print(f"  - {defn.name} ({defn.id}): {len(defn.phases)} phases{has_template}")
 ```
 
 **Output:**
 ```
-[Phases] Loaded 3 phases:
-  - Phase 1: requirements_analysis
-  - Phase 2: plan_and_implementation
-  - Phase 3: validate_and_document
+[Workflows] Loaded 2 workflow definitions:
+  - PRD to Software Builder (prd-to-software): 3 phases (with launch template)
+  - Bug Fix (bug-fix): 3 phases (with launch template)
 ```
 
-### 9. Create the Initial Task
+### 10. Let Users Launch from UI
 
-Unless using `--resume`, create the Phase 1 task that kicks everything off:
+With multi-workflow mode, you don't create tasks programmatically. Users launch workflows from the UI:
 
 ```python
-if not args.resume:
-    task_id = sdk.create_task(
-        description=f"""
-        Phase 1: Build LinkLite URL Shortener - Analyze PRD at {prd_file}.
-
-        This is a production-ready URL shortening service with batch operations,
-        rich analytics, QR codes, API, and custom domains.
-
-        Extract all requirements, identify components (auth, links, analytics,
-        API, frontend, workers, QR generation), and spawn MULTIPLE Phase 2
-        design tasks (one per component).
-
-        Read the entire PRD carefully - it has 10 sections with detailed specs.
-        """,
-        phase_id=1,
-        priority="high",
-        agent_id="main-session-agent",
-    )
-    print(f"[Task] ✓ Created task: {task_id}")
+print("=" * 60)
+print("HEPHAESTUS IS READY")
+print("=" * 60)
+print()
+print("Open the frontend to launch workflows:")
+print("  http://localhost:3000")
+print()
+print("To launch a workflow:")
+print("  1. Go to 'Workflow Executions' page")
+print("  2. Click 'Launch Workflow'")
+print("  3. Select a workflow and fill in the form")
+print("  4. Review and launch!")
+print()
+print("Press Ctrl+C to stop Hephaestus")
 ```
 
-**Key points:**
-- `description`: Tell the agent exactly what to do
-- `phase_id=1`: This is a Phase 1 task
-- `agent_id="main-session-agent"`: Identifies who created it (you, not another agent)
-- The description references the PRD file location
+When users click "Launch Workflow", they see a form generated from your `LaunchTemplate`. Their inputs become the Phase 1 task prompt.
 
-### 10. Monitor Progress
+**Still want programmatic task creation?** You can do both:
 
 ```python
-if not args.tui:
-    print("[Hephaestus] Workflow running. Press Ctrl+C to stop.\n")
-    print("[Info] The workflow will:")
-    print("  1. Parse the PRD and identify components")
-    print("  2. Create Kanban tickets for each component")
-    print("  3. Design each component in parallel (Phase 2)")
-    print("  4. Implement each component (Phase 3)")
-    print("  5. Test and validate (Phase 4)")
-    print("  6. Submit final result when complete")
-    print("\n[Kanban Board] http://localhost:3001/")
+# Start a workflow programmatically (returns workflow_id)
+workflow_id = sdk.start_workflow(
+    definition_id="bug-fix",
+    description="Fix login authentication bug",
+    launch_params={
+        "bug_description": "Login fails with special characters",
+        "severity": "High"
+    }
+)
 
-    try:
-        while True:
-            time.sleep(10)
-            # Optional: Poll task status
-            tasks = sdk.get_tasks(status="in_progress")
-            if tasks:
-                print(f"[Status] {len(tasks)} task(s) in progress...")
-    except KeyboardInterrupt:
-        print("\n[Hephaestus] Received interrupt signal")
+# Or create tasks in an existing workflow
+task_id = sdk.create_task_in_workflow(
+    workflow_id=workflow_id,
+    description="Investigate the authentication issue",
+    phase_id=1,
+    priority="high",
+    agent_id="main-session-agent",
+)
 ```
 
-In headless mode, the script keeps running and periodically reports progress.
+### 11. Monitor Progress
 
-### 11. Graceful Shutdown
+```python
+try:
+    while True:
+        time.sleep(10)
+        # Optional: Poll task status
+        tasks = sdk.get_tasks(status="in_progress")
+        if tasks:
+            print(f"[Status] {len(tasks)} task(s) in progress...")
+except KeyboardInterrupt:
+    print("\n[Hephaestus] Received interrupt signal")
+```
+
+In headless mode, the script keeps running and periodically reports progress. You can also monitor everything in the UI at `http://localhost:3000`.
+
+### 12. Graceful Shutdown
 
 ```python
 print("\n[Hephaestus] Shutting down...")
@@ -267,6 +303,77 @@ Cleanly stops all services:
 - Stops the backend server
 - Stops Guardian monitoring
 - Cleans up tmux sessions
+
+## The Launch Template
+
+The magic of UI-based launching comes from `LaunchTemplate`. Here's what the PRD workflow's template looks like:
+
+```python
+from src.sdk.models import LaunchTemplate, LaunchParameter
+
+PRD_LAUNCH_TEMPLATE = LaunchTemplate(
+    parameters=[
+        LaunchParameter(
+            name="project_name",
+            label="Project Name",
+            type="text",
+            required=True,
+            description="Name of the project you're building"
+        ),
+        LaunchParameter(
+            name="project_type",
+            label="Project Type",
+            type="dropdown",
+            required=True,
+            options=["Web Application", "CLI Tool", "Library/SDK", "API/Microservice"],
+            description="What type of software are you building?"
+        ),
+        LaunchParameter(
+            name="prd_content",
+            label="PRD Content",
+            type="textarea",
+            required=True,
+            description="Paste the full PRD here"
+        ),
+        LaunchParameter(
+            name="tech_preferences",
+            label="Technology Preferences",
+            type="text",
+            required=False,
+            description="Optional: Preferred tech stack (e.g., 'FastAPI, React, SQLite')"
+        ),
+    ],
+    phase_1_task_prompt="""Phase 1: Requirements Analysis - {project_name}
+
+**Project Type:** {project_type}
+**Technology Preferences:** {tech_preferences}
+
+## PRD Content
+{prd_content}
+
+Your task:
+1. Read and understand the PRD above
+2. Identify major components
+3. Create Kanban tickets for each component
+4. Create Phase 2 design & implementation tasks
+"""
+)
+```
+
+**How it works:**
+
+1. **parameters**: Define form fields users fill out
+2. **phase_1_task_prompt**: The template for the initial task
+3. **{placeholders}**: Get replaced with user inputs when launched
+
+**Available parameter types:**
+- `text`: Single-line text input
+- `textarea`: Multi-line text input
+- `number`: Numeric input
+- `boolean`: Checkbox
+- `dropdown`: Select from options list
+
+See [Launch Templates](../features/launch-templates.md) for the complete guide.
 
 ## The Phase Definitions
 
@@ -385,126 +492,159 @@ When an agent calls `submit_result()`, Guardian validates it against these crite
 
 **Basic usage:**
 ```bash
-python run_prd_workflow.py
+python run_hephaestus_dev.py
 ```
 
-**With TUI:**
+**Fresh start (drops database):**
 ```bash
-python run_prd_workflow.py --tui
+python run_hephaestus_dev.py --drop-db
 ```
 
-**Fresh start:**
+**Specify project path:**
 ```bash
-python run_prd_workflow.py --drop-db
+python run_hephaestus_dev.py --path /path/to/my/project
 ```
 
-**Custom PRD:**
-```bash
-python run_prd_workflow.py --prd /path/to/my-prd.md
-```
+The script will:
+1. Set up a project directory with example PRD
+2. Initialize git repository
+3. Start Hephaestus with both workflows registered
+4. Display instructions for launching from UI
 
-**Resume existing workflow:**
-```bash
-python run_prd_workflow.py --resume
-```
-
-## What Happens When It Runs
+## What Happens When You Launch a Workflow
 
 ```
-1. [SDK] Loads PRD_PHASES (3 phases)
-2. [SDK] Starts backend server (port 8000)
-3. [SDK] Starts Guardian monitoring (checks every 60s)
-4. [SDK] Creates Phase 1 task: "Analyze PRD at /path/to/PRD.md"
-5. [Agent 1] Spawns in tmux session
-6. [Agent 1] Reads PRD, identifies 6 components
-7. [Agent 1] Creates 6 Kanban tickets
-8. [Agent 1] Creates 6 Phase 2 tasks (one per component)
-9. [Agent 2-7] Six agents spawn, one per Phase 2 task
-10. [Agents 2-7] Work in parallel, each building their component
-11. [Agents 2-7] Each creates a Phase 3 validation task when done
-12. [Agent 8-13] Six validation agents spawn
-13. [Agents 8-13] Validate components, find bugs, create Phase 2 fix tasks
-14. [More agents] Spawn to fix bugs discovered by validators
-15. [Eventually] All components complete, an agent submits final result
-16. [Guardian] Validates result against criteria
-17. [SDK] Stops all agents (on_result_found="stop_all")
-18. [Workflow] Complete!
+1. [User] Clicks "Launch Workflow" in UI
+2. [User] Selects "PRD to Software Builder"
+3. [User] Fills in form: PRD location, project type, preferences
+4. [User] Reviews and clicks "Launch"
+5. [SDK] Creates workflow execution
+6. [SDK] Substitutes form values into phase_1_task_prompt
+7. [SDK] Creates Phase 1 task with populated prompt
+8. [Agent 1] Spawns in tmux session
+9. [Agent 1] Reads PRD, identifies 6 components
+10. [Agent 1] Creates 6 Kanban tickets
+11. [Agent 1] Creates 6 Phase 2 tasks (one per component)
+12. [Agent 2-7] Six agents spawn, one per Phase 2 task
+13. [Agents 2-7] Work in parallel, each building their component
+14. [Agents 2-7] Each creates a Phase 3 validation task when done
+15. [Agent 8-13] Six validation agents spawn
+16. [Agents 8-13] Validate components, find bugs, create Phase 2 fix tasks
+17. [More agents] Spawn to fix bugs discovered by validators
+18. [Eventually] All components complete, an agent submits final result
+19. [Guardian] Validates result against criteria
+20. [SDK] Marks workflow complete (on_result_found="complete")
+21. [Workflow] Complete!
 ```
 
 The workflow **builds itself** based on what agents discover.
 
 ## Other Examples
 
-### Simple 2-Phase Workflow
+### Bug Fix Workflow
+
+The bug fix workflow is simpler — it fixes bugs in 3 phases:
 
 ```python
-from src.sdk import HephaestusSDK, Phase, WorkflowConfig
+from example_workflows.bug_fix.phases import BUG_FIX_PHASES, BUG_FIX_WORKFLOW_CONFIG, BUG_FIX_LAUNCH_TEMPLATE
+from src.sdk.models import WorkflowDefinition
 
-phases = [
-    Phase(
-        id=1,
-        name="analysis",
-        description="Analyze the problem",
-        done_definitions=["Problem understood", "Phase 2 task created"],
-        working_directory="."
-    ),
-    Phase(
-        id=2,
-        name="solution",
-        description="Solve the problem",
-        done_definitions=["Solution implemented", "Verified working"],
-        working_directory="."
-    ),
+bug_fix_workflow = WorkflowDefinition(
+    id="bug-fix",
+    name="Bug Fix",
+    phases=BUG_FIX_PHASES,
+    config=BUG_FIX_WORKFLOW_CONFIG,
+    description="Analyze, fix, and verify bug fixes",
+    launch_template=BUG_FIX_LAUNCH_TEMPLATE,
+)
+```
+
+The launch template asks for:
+- Bug description (textarea)
+- Bug type (dropdown: UI, Backend, Database, etc.)
+- Severity (dropdown: Critical, High, Medium, Low)
+- Steps to reproduce (optional textarea)
+
+### Adding Your Own Workflow
+
+Create a new workflow by defining phases, config, and launch template:
+
+```python
+from src.sdk.models import Phase, WorkflowConfig, LaunchTemplate, LaunchParameter, WorkflowDefinition
+
+# 1. Define phases
+my_phases = [
+    Phase(id=1, name="research", description="Research the topic", ...),
+    Phase(id=2, name="execute", description="Execute the plan", ...),
+    Phase(id=3, name="verify", description="Verify results", ...),
 ]
 
-config = WorkflowConfig(
+# 2. Configure result handling
+my_config = WorkflowConfig(
     has_result=True,
-    result_criteria="Problem is solved",
-    on_result_found="stop_all"
+    result_criteria="Task completed successfully",
+    on_result_found="complete"
 )
 
-sdk = HephaestusSDK(phases=phases, workflow_config=config)
-sdk.start()
-sdk.create_task("Solve issue #123", phase_id=1, agent_id="main-session-agent")
+# 3. Create launch template
+my_template = LaunchTemplate(
+    parameters=[
+        LaunchParameter(name="topic", label="Topic", type="text", required=True),
+        LaunchParameter(name="depth", label="Research Depth", type="dropdown",
+                       options=["Quick", "Standard", "Deep"], default="Standard"),
+    ],
+    phase_1_task_prompt="Research {topic} with {depth} analysis..."
+)
+
+# 4. Bundle into WorkflowDefinition
+my_workflow = WorkflowDefinition(
+    id="my-research",
+    name="Research Workflow",
+    phases=my_phases,
+    config=my_config,
+    description="Research any topic systematically",
+    launch_template=my_template,
+)
 ```
 
 ## Key Takeaways
 
-**The SDK pattern:**
-1. Define phases (or import existing ones)
-2. Configure workflow result handling
-3. Initialize SDK with phases + config
-4. Start services
-5. Create initial task
-6. Let it run
+**The multi-workflow SDK pattern:**
+1. Define phases for each workflow type
+2. Create launch templates for UI forms
+3. Bundle into WorkflowDefinition objects
+4. Initialize SDK with all workflow definitions
+5. Start services
+6. Let users launch from UI (or programmatically)
 7. Shutdown gracefully
 
 **Best practices:**
 - Always use `try/except` around `sdk.start()`
 - Use `graceful=True` when shutting down
-- Set `agent_id="main-session-agent"` for tasks you create manually
+- Create meaningful launch template parameters
+- Use descriptive workflow IDs and names
 - Put cleanup logic in `finally` blocks
-- Use `--tui` mode during development for visibility
 
-**Real workflows:**
-- See `run_prd_workflow.py` for production example
-- See `example_workflows/prd_to_software/phases.py` for phase definitions
-- See `example_workflows/hackerone_bug_bounty/` for security testing
-- All real workflows follow this pattern
+**Available workflows:**
+- `example_workflows/prd_to_software/` - PRD to software builder
+- `example_workflows/bug_fix/` - Bug fixing workflow
+- `run_hephaestus_dev.py` - Multi-workflow setup example
 
 ## Next Steps
 
-**Try the PRD Workflow:**
+**Try it out:**
 ```bash
 cd /path/to/Hephaestus
-python run_prd_workflow.py --tui
+python run_hephaestus_dev.py
+# Then open http://localhost:3000 and launch a workflow!
 ```
 
 **Read the Guides:**
 - [SDK Overview](overview.md) - What the SDK does
 - [Defining Phases](phases.md) - Complete phase guide
+- [Launch Templates](../features/launch-templates.md) - UI form configuration
 - [Quick Start](../getting-started/quick-start.md) - Step-by-step setup
 
 **Explore Examples:**
-- `example_workflows/prd_to_software/` - Complete software builder
-- `run_prd_workflow.py` - The script we just examined
+- `example_workflows/prd_to_software/phases.py` - Complete PRD workflow with launch template
+- `example_workflows/bug_fix/phases.py` - Bug fix workflow with launch template

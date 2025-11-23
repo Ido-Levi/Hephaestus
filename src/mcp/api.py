@@ -596,7 +596,7 @@ class FrontendAPI:
         return workflow_info.get("phases", [])
 
     async def get_phase_details(self, phase_id: str) -> Dict[str, Any]:
-        """Get detailed phase information from YAML files."""
+        """Get detailed phase information from database."""
         session = self.db_manager.get_session()
         try:
             # Get the phase from database
@@ -604,40 +604,13 @@ class FrontendAPI:
             if not phase:
                 raise HTTPException(status_code=404, detail="Phase not found")
 
-            # Get the workflow to find the phases folder path
-            workflow = session.query(Workflow).filter_by(id=phase.workflow_id).first()
-            if workflow and workflow.phases_folder_path:
-                try:
-                    import yaml
-                    import os
-
-                    # Construct the YAML filename based on phase order and name
-                    yaml_file = os.path.join(
-                        workflow.phases_folder_path,
-                        f"{phase.order:02d}_{phase.name.lower().replace(' ', '_')}.yaml"
-                    )
-
-                    if os.path.exists(yaml_file):
-                        with open(yaml_file, 'r') as f:
-                            yaml_content = yaml.safe_load(f)
-
-                        return {
-                            "description": yaml_content.get("description", ""),
-                            "done_definitions": yaml_content.get("Done_Definitions", []),
-                            "additional_notes": yaml_content.get("Additional_Notes", ""),
-                            "outputs": yaml_content.get("Outputs", ""),
-                            "next_steps": yaml_content.get("Next_Steps", "")
-                        }
-                except Exception as e:
-                    logger.warning(f"Could not load YAML for phase {phase_id}: {e}")
-
-            # Fallback to basic phase information
+            # Return phase details directly from database
             return {
                 "description": phase.description or "",
-                "done_definitions": [],
-                "additional_notes": "No additional configuration available",
-                "outputs": "Standard phase outputs",
-                "next_steps": "Proceed to next phase when complete"
+                "done_definitions": phase.done_definitions or [],
+                "additional_notes": phase.additional_notes or "",
+                "outputs": phase.outputs or "",
+                "next_steps": phase.next_steps or ""
             }
         finally:
             session.close()
@@ -858,6 +831,7 @@ class FrontendAPI:
                 "runtime_seconds": runtime_seconds,
                 "system_prompt": system_prompt,
                 "user_prompt": task.enriched_description or task.raw_description,
+                "workflow_id": task.workflow_id,
                 "phase_info": phase_info,
                 "agent_info": agent_info,
                 "parent_task": parent_task,

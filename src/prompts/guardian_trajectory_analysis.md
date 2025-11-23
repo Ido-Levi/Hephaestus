@@ -98,6 +98,14 @@ This shows the agent's FULL journey. You MUST extract:
 These summaries show how the agent's work has evolved:
 {past_summaries}
 
+## WORKFLOW CONTEXT
+
+**Workflow ID**: {workflow_id}
+**Workflow Description**: {workflow_description}
+**Definition Name**: {definition_name}
+
+This agent is operating within the context of the above workflow. All tasks and coordination should align with this workflow's objectives.
+
 ## CURRENT TASK DETAILS
 
 **Task Description**: {task_description}

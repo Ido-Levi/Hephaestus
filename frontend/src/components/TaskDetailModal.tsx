@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWebSocket } from '@/context/WebSocketContext';
+import { useWorkflow } from '@/context/WorkflowContext';
 import {
   X,
   FileText,
@@ -28,7 +30,8 @@ import {
   Zap,
   XCircle,
   RotateCcw,
-  Ticket
+  Ticket,
+  Workflow
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -60,6 +63,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   onNavigateToTask,
   onNavigateToGraph,
 }) => {
+  const navigate = useNavigate();
+  const { selectExecution } = useWorkflow();
   const [showAgentOutput, setShowAgentOutput] = useState(false);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState({
@@ -459,6 +464,32 @@ ${taskDetails.child_tasks.map((t: any) => `- ${t.description} (${t.status})`).jo
                 <div className="text-gray-600 dark:text-gray-400">
                   Created: {formatDistanceToNow(new Date(taskDetails.created_at), { addSuffix: true })}
                 </div>
+
+                {taskDetails.workflow_id && (
+                  <div className="flex items-center text-gray-600 dark:text-gray-400 col-span-4">
+                    <Workflow className="w-4 h-4 mr-2 text-blue-500" />
+                    <span className="text-xs">Workflow: </span>
+                    <button
+                      onClick={() => {
+                        selectExecution(taskDetails.workflow_id!);
+                        navigate('/workflows');
+                        onClose();
+                      }}
+                      className="ml-1 text-xs font-mono text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                      title={`Go to workflow: ${taskDetails.workflow_id}`}
+                    >
+                      {taskDetails.workflow_id.slice(0, 12)}...
+                      <ExternalLink className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={() => copyToClipboard(taskDetails.workflow_id!, 'workflow ID')}
+                      className="ml-2 text-gray-400 hover:text-gray-600"
+                      title="Copy workflow ID"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
 
                 {taskDetails.estimated_complexity && (
                   <div className="text-gray-600 dark:text-gray-400">

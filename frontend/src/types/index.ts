@@ -208,6 +208,7 @@ export interface TaskFullDetails {
   runtime_seconds: number;
   system_prompt: string | null;
   user_prompt: string;
+  workflow_id: string | null;
   // Task deduplication fields
   duplicate_of_task_id?: string | null;
   similarity_score?: number | null;
@@ -434,4 +435,51 @@ export interface BlockedTask {
   blocking_tickets: BlockerTicket[];
   phase_id?: string | null;
   workflow_id?: string | null;
+}
+
+// Workflow Types for Multi-Workflow Support
+
+// Launch Template Types for UI-based workflow launching
+export type LaunchParameterType = 'text' | 'textarea' | 'number' | 'boolean' | 'dropdown';
+
+export interface LaunchParameter {
+  name: string;           // Parameter key, e.g., "bug_description"
+  label: string;          // Display label, e.g., "Bug Description"
+  type: LaunchParameterType;
+  required: boolean;
+  default?: any;
+  description?: string;   // Help text shown below field
+  options?: string[];     // For dropdown type
+}
+
+export interface LaunchTemplate {
+  parameters: LaunchParameter[];
+  phase_1_task_prompt: string;  // Template for first task
+}
+
+export interface WorkflowDefinition {
+  id: string;
+  name: string;
+  description: string;
+  phases_count: number;
+  has_result: boolean;
+  created_at: string;
+  launch_template?: LaunchTemplate | null;
+}
+
+export interface WorkflowExecution {
+  id: string;
+  definition_id: string;
+  definition_name: string;
+  description: string;
+  status: 'active' | 'paused' | 'completed' | 'failed';
+  created_at: string;
+  working_directory: string;
+  stats: {
+    total_tasks: number;
+    active_tasks: number;
+    done_tasks: number;
+    failed_tasks: number;
+    active_agents: number;
+  };
 }

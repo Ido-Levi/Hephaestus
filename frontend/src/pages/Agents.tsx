@@ -336,9 +336,11 @@ const Agents: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-800">Agents</h1>
-        <p className="text-gray-600 mt-1">AI agents and their status</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800">Agents</h1>
+          <p className="text-gray-600 mt-1">All AI agents across all workflows</p>
+        </div>
       </div>
 
       {/* Stats */}

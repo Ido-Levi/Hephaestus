@@ -13,6 +13,7 @@ import {
 import { apiService } from '@/services/api';
 import { Agent } from '@/types';
 import { useWebSocket } from '@/context/WebSocketContext';
+import { useWorkflow } from '@/context/WorkflowContext';
 import StatusBadge from '@/components/StatusBadge';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -27,12 +28,14 @@ const QueueSection: React.FC<QueueSectionProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const { subscribe } = useWebSocket();
+  const { selectedExecutionId } = useWorkflow();
 
   // Fetch queue status
   const { data: queueStatus, refetch: refetchQueue } = useQuery({
-    queryKey: ['queue-status'],
-    queryFn: apiService.getQueueStatus,
+    queryKey: ['queue-status', selectedExecutionId],
+    queryFn: () => apiService.getQueueStatus(selectedExecutionId || undefined),
     refetchInterval: 3000,
+    enabled: !!selectedExecutionId,
   });
 
   // Fetch active agents

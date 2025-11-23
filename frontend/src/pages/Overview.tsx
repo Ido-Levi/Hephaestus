@@ -24,6 +24,8 @@ import { apiService } from '@/services/api';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useWebSocket } from '@/context/WebSocketContext';
+import { useWorkflow } from '@/context/WorkflowContext';
+import ExecutionSelector from '@/components/ExecutionSelector';
 import SystemHealthCard from '@/components/overview/SystemHealthCard';
 import ConductorSummaryCard from '@/components/overview/ConductorSummaryCard';
 import SteeringEventsCard from '@/components/overview/SteeringEventsCard';
@@ -38,12 +40,13 @@ export default function Overview() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { subscribe } = useWebSocket();
+  const { selectedExecutionId, selectedExecution } = useWorkflow();
   const [showBroadcastDialog, setShowBroadcastDialog] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const { data: systemData, isLoading, error, refetch } = useQuery({
-    queryKey: ['system-overview'],
+    queryKey: ['system-overview', selectedExecutionId],
     queryFn: apiService.getSystemOverview,
     refetchInterval: 5000, // Refresh every 5 seconds
   });
@@ -99,10 +102,15 @@ export default function Overview() {
             System Overview
           </h1>
           <p className="text-gray-600 mt-1">
-            Real-time monitoring and trajectory analysis
+            {selectedExecution ? (
+              <>Workflow: {selectedExecution.description || selectedExecution.definition_name}</>
+            ) : (
+              'Real-time monitoring and trajectory analysis'
+            )}
           </p>
         </div>
         <div className="flex items-center space-x-2">
+          <ExecutionSelector />
           {systemData?.timestamp && (
             <Badge variant="outline" className="text-xs">
               Last update: {formatDistanceToNow(new Date(systemData.timestamp), { addSuffix: true })}

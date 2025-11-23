@@ -14,6 +14,12 @@ The SDK handles the operational complexity of running a multi-agent system:
 - Manages log files
 - Handles graceful shutdown
 
+**Multi-Workflow Support**
+- Register multiple workflow types (bug fix, PRD builder, security audit, etc.)
+- Each workflow has its own phases and configuration
+- Launch workflows from the UI with dynamic forms
+- Run multiple workflow executions simultaneously
+
 **Workflow Definition**
 - Loads your phase definitions
 - Validates configuration
@@ -82,40 +88,80 @@ while True:
 
 ## Basic Example
 
-Here's what SDK usage looks like:
+Here's what SDK usage looks like. You define workflow types, start Hephaestus, and let users launch workflows from the UI:
 
 ```python
-from src.sdk import HephaestusSDK, Phase, WorkflowConfig
+from src.sdk import HephaestusSDK
+from src.sdk.models import WorkflowDefinition, Phase, WorkflowConfig, LaunchTemplate, LaunchParameter
 
 # Define your workflow phases
-phases = [
+bug_fix_phases = [
     Phase(
         id=1,
-        name="analysis",
-        description="Analyze the problem",
-        done_definitions=["Problem understood", "Phase 2 task created"],
+        name="analyze",
+        description="Analyze and reproduce the bug",
+        done_definitions=["Bug reproduced", "Root cause identified", "Phase 2 task created"],
         working_directory=".",
     ),
     Phase(
         id=2,
-        name="implementation",
-        description="Implement the solution",
-        done_definitions=["Solution implemented", "Tests pass"],
+        name="fix",
+        description="Implement the fix",
+        done_definitions=["Fix implemented", "Tests pass"],
         working_directory=".",
     ),
 ]
 
 # Configure result handling
-workflow_config = WorkflowConfig(
+bug_fix_config = WorkflowConfig(
     has_result=True,
-    result_criteria="Problem is solved and verified",
-    on_result_found="stop_all"
+    result_criteria="Bug is fixed and verified",
+    on_result_found="complete"
 )
 
-# Initialize SDK
+# Create a launch template - this generates the UI form
+bug_fix_template = LaunchTemplate(
+    parameters=[
+        LaunchParameter(
+            name="bug_description",
+            label="Bug Description",
+            type="textarea",
+            required=True,
+            description="Describe the bug - what's happening vs what should happen"
+        ),
+        LaunchParameter(
+            name="severity",
+            label="Severity",
+            type="dropdown",
+            required=True,
+            options=["Critical", "High", "Medium", "Low"],
+            default="Medium"
+        ),
+    ],
+    phase_1_task_prompt="""Phase 1: Analyze and Reproduce Bug
+
+**Severity:** {severity}
+
+**Bug Description:**
+{bug_description}
+
+Your task: Reproduce this bug, identify the root cause, and create a Phase 2 fix task.
+"""
+)
+
+# Bundle everything into a WorkflowDefinition
+bug_fix_workflow = WorkflowDefinition(
+    id="bug-fix",
+    name="Bug Fix",
+    description="Analyze, fix, and verify bug fixes",
+    phases=bug_fix_phases,
+    config=bug_fix_config,
+    launch_template=bug_fix_template,  # Enables UI launching
+)
+
+# Initialize SDK with your workflow definitions
 sdk = HephaestusSDK(
-    phases=phases,
-    workflow_config=workflow_config,
+    workflow_definitions=[bug_fix_workflow],  # Can register multiple!
     working_directory="/path/to/project",
     main_repo_path="/path/to/project",
 )
@@ -123,17 +169,9 @@ sdk = HephaestusSDK(
 # Start services
 sdk.start()
 
-# Create initial task
-task_id = sdk.create_task(
-    description="Fix authentication bug in login.js",
-    phase_id=1,
-    priority="high",
-    agent_id="main-session-agent"
-)
-
-# Monitor progress
-print(f"Task created: {task_id}")
-print("Workflow running... Press Ctrl+C to stop")
+# That's it! Users can now launch workflows from the UI at http://localhost:3000
+print("Hephaestus running. Launch workflows from the UI.")
+print("Press Ctrl+C to stop")
 
 try:
     while True:
@@ -143,6 +181,8 @@ except KeyboardInterrupt:
     print("Shutting down...")
     sdk.shutdown(graceful=True)
 ```
+
+When users click "Launch Workflow" in the UI, they see a form generated from your `LaunchTemplate`. Their inputs get substituted into `{placeholders}` in the phase prompt, and the workflow begins.
 
 ## What You Get
 
@@ -169,30 +209,54 @@ except KeyboardInterrupt:
 
 ## The Two Ways to Use It
 
-### 1. Import Existing Workflows
+### 1. Multi-Workflow Mode (Recommended)
 
-Use pre-built workflows from `example_workflows/`:
+Register multiple workflow types and let users launch them from the UI:
 
 ```python
-from example_workflows.prd_to_software.phases import PRD_PHASES, PRD_WORKFLOW_CONFIG
+from example_workflows.prd_to_software.phases import PRD_PHASES, PRD_WORKFLOW_CONFIG, PRD_LAUNCH_TEMPLATE
+from example_workflows.bug_fix.phases import BUG_FIX_PHASES, BUG_FIX_WORKFLOW_CONFIG, BUG_FIX_LAUNCH_TEMPLATE
 from src.sdk import HephaestusSDK
+from src.sdk.models import WorkflowDefinition
 
-sdk = HephaestusSDK(
+# Create workflow definitions
+prd_workflow = WorkflowDefinition(
+    id="prd-to-software",
+    name="PRD to Software Builder",
+    description="Build working software from a Product Requirements Document",
     phases=PRD_PHASES,
-    workflow_config=PRD_WORKFLOW_CONFIG,
+    config=PRD_WORKFLOW_CONFIG,
+    launch_template=PRD_LAUNCH_TEMPLATE,
+)
+
+bug_fix_workflow = WorkflowDefinition(
+    id="bug-fix",
+    name="Bug Fix",
+    description="Analyze, fix, and verify bugs",
+    phases=BUG_FIX_PHASES,
+    config=BUG_FIX_WORKFLOW_CONFIG,
+    launch_template=BUG_FIX_LAUNCH_TEMPLATE,
+)
+
+# Register all workflows
+sdk = HephaestusSDK(
+    workflow_definitions=[prd_workflow, bug_fix_workflow],
     working_directory="/path/to/project",
     main_repo_path="/path/to/project",
 )
+
+sdk.start()
+# Users launch workflows from http://localhost:3000 → Workflow Executions
 ```
 
-See: `run_prd_workflow.py` for a complete example.
+See: `run_hephaestus_dev.py` for a complete multi-workflow setup.
 
-### 2. Define Custom Workflows
+### 2. Single-Workflow Mode (Legacy)
 
-Create your own phase definitions:
+For simpler use cases or backward compatibility, you can still pass phases directly:
 
 ```python
-from src.sdk import Phase
+from src.sdk import HephaestusSDK, Phase, WorkflowConfig
 
 my_phases = [
     Phase(id=1, name="recon", description="..."),
@@ -200,8 +264,20 @@ my_phases = [
     Phase(id=3, name="report", description="..."),
 ]
 
-sdk = HephaestusSDK(phases=my_phases)
+my_config = WorkflowConfig(has_result=True, on_result_found="stop_all")
+
+sdk = HephaestusSDK(
+    phases=my_phases,
+    workflow_config=my_config,
+    working_directory="/path/to/project",
+)
+
+sdk.start()
+# Create tasks programmatically
+sdk.create_task("Do the thing", phase_id=1, agent_id="main-session-agent")
 ```
+
+This mode doesn't support UI launching — you create tasks from code.
 
 See: [Defining Phases](phases.md) for the complete guide.
 
@@ -211,7 +287,12 @@ The SDK accepts any configuration from `hephaestus_config.yaml` as parameters:
 
 ```python
 sdk = HephaestusSDK(
-    phases=phases,
+    # Multi-workflow mode (recommended)
+    workflow_definitions=[prd_workflow, bug_fix_workflow],
+
+    # Or single-workflow mode (legacy)
+    # phases=phases,
+    # workflow_config=workflow_config,
 
     # LLM Configuration
     # Note: These are deprecated - use hephaestus_config.yaml instead
@@ -293,11 +374,12 @@ See: [Quick Start Guide](../getting-started/quick-start.md) for complete setup i
 
 **Learn Phase Definition**
 - [Defining Phases](phases.md) - Complete guide to Phase objects
+- [Launch Templates](../features/launch-templates.md) - UI forms for workflow launching
 
 **See Real Examples**
-- [PRD to Software Workflow](examples.md) - Breakdown of run_prd_workflow.py
-- `example_workflows/prd_to_software/` - Production workflow
-- `example_workflows/hackerone_bug_bounty/` - Security testing workflow
+- [SDK Examples](examples.md) - Complete workflow setup walkthrough
+- `example_workflows/prd_to_software/` - PRD to software workflow
+- `example_workflows/bug_fix/` - Bug fixing workflow
 
 **Understand the System**
 - [Phases System Guide](../guides/phases-system.md) - How workflows build themselves
@@ -305,6 +387,6 @@ See: [Quick Start Guide](../getting-started/quick-start.md) for complete setup i
 
 ## The Bottom Line
 
-The SDK is how you programmatically control Hephaestus. You define phases, start services, create tasks, and let autonomous agents build your workflow.
+The SDK is how you programmatically control Hephaestus. You define workflow types with phases and launch templates, start services, and let users launch workflows from the UI.
 
 Everything else — agent spawning, monitoring, Git isolation, task coordination — is handled automatically.

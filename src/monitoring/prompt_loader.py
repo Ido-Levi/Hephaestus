@@ -41,6 +41,9 @@ class PromptLoader:
         task_info: Dict[str, Any],
         agent_output: str,
         last_message_marker: Optional[str] = None,
+        workflow_id: Optional[str] = None,
+        workflow_description: Optional[str] = None,
+        definition_name: Optional[str] = None,
     ) -> str:
         """Format the Guardian trajectory analysis prompt.
 
@@ -50,6 +53,9 @@ class PromptLoader:
             task_info: Current task information
             agent_output: Recent agent output from tmux
             last_message_marker: Optional marker from previous cycle to identify new content
+            workflow_id: ID of the workflow this agent belongs to
+            workflow_description: Description of the workflow
+            definition_name: Name of the workflow definition
 
         Returns:
             Formatted prompt ready for LLM
@@ -165,6 +171,9 @@ If agent is NOT following phase instructions → needs_steering: true
             agent_output=agent_output[-40000:],  # Last 40000 chars to avoid token overflow
             last_message_marker_section=marker_section,
             phase_context=phase_section,  # NEW
+            workflow_id=workflow_id or "N/A (standalone task)",
+            workflow_description=workflow_description or "No workflow description available",
+            definition_name=definition_name or "N/A",
         )
 
         # Prompt to send
@@ -180,18 +189,35 @@ If agent is NOT following phase instructions → needs_steering: true
         self,
         guardian_summaries: list,
         system_goals: Dict[str, Any],
+        workflows: Optional[list] = None,
     ) -> str:
         """Format the Conductor system analysis prompt.
 
         Args:
             guardian_summaries: List of all Guardian analysis results
             system_goals: System-wide goals and constraints
+            workflows: List of active workflows with their agents
 
         Returns:
             Formatted prompt ready for LLM
         """
         # Load the template
         template = self.load_prompt("conductor_system_analysis")
+
+        # Format workflows breakdown
+        if workflows:
+            workflows_breakdown = ""
+            for wf in workflows:
+                workflows_breakdown += f"""
+### Workflow: {wf.get('workflow_id', 'Unknown')}
+**Description**: {wf.get('description', 'No description')}
+**Definition**: {wf.get('definition_name', 'N/A')}
+**Active Agents**: {', '.join(wf.get('agent_ids', [])) if wf.get('agent_ids') else 'None'}
+**Current Phases**: {', '.join(str(p) for p in wf.get('phases', [])) if wf.get('phases') else 'N/A'}
+**Task Status**: {wf.get('task_summary', 'No tasks')}
+"""
+        else:
+            workflows_breakdown = "No active workflows or workflow information not available."
 
         # Prepare summary data for better readability
         summary_data = []
@@ -227,6 +253,7 @@ If agent is NOT following phase instructions → needs_steering: true
             system_constraints=system_goals.get("constraints", "No duplicate work, efficient resource usage"),
             coordination_requirement=system_goals.get("coordination", "All agents working toward collective objectives"),
             guardian_summaries_json=summaries_json_str,
+            workflows_breakdown=workflows_breakdown,
         )
 
         # Verify the JSON was inserted
@@ -308,7 +335,9 @@ If agent is NOT following phase instructions → needs_steering: true
         iteration: int,
         working_directory: str,
         commit_sha: str,
-        previous_feedback: str = None
+        previous_feedback: str = None,
+        workflow_id: Optional[str] = None,
+        workflow_description: Optional[str] = None,
     ) -> str:
         """Format the task validation prompt with specific values.
 
@@ -323,6 +352,8 @@ If agent is NOT following phase instructions → needs_steering: true
             working_directory: Working directory path
             commit_sha: Git commit to review
             previous_feedback: Previous validation feedback if any
+            workflow_id: ID of the workflow this task belongs to
+            workflow_description: Description of the workflow
 
         Returns:
             Formatted prompt ready to send to validator
@@ -360,7 +391,9 @@ Please verify that the previous issues have been addressed.
             working_directory=working_directory,
             commit_sha=commit_sha,
             previous_feedback_section=previous_feedback_section,
-            iteration_guidance=iteration_guidance
+            iteration_guidance=iteration_guidance,
+            workflow_id=workflow_id or "N/A (standalone task)",
+            workflow_description=workflow_description or "No workflow description available",
         )
 
     def _format_list(self, items: list, empty_message: str) -> str:

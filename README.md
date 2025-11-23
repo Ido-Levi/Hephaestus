@@ -9,7 +9,7 @@
 
 **What if AI workflows could write their own instructions as agents discover what needs to be done?**
 
-[Quick Start](https://ido-levi.github.io/Hephaestus/docs/getting-started/quick-start) • [Documentation](https://ido-levi.github.io/Hephaestus/) • [Examples](example_workflows/) • [Help us evaluate SWEBench](https://ido-levi.github.io/Hephaestus/docs/guides/running-swebench-benchmark) • [Join our discord](https://discord.gg/FMCJeKG3dU)
+[Quick Start](https://ido-levi.github.io/Hephaestus/docs/getting-started/quick-start) • [Documentation](https://ido-levi.github.io/Hephaestus/) • [Examples](example_workflows/) • [Join our discord](https://discord.gg/FMCJeKG3dU) • [Hephaestus Dev](https://ido-levi.github.io/Hephaestus/docs/getting-started/hephaestus-dev)
 
 </div>
 
@@ -24,6 +24,26 @@ https://github.com/user-attachments/assets/7b021611-2c09-494b-9da1-2ce05176dc51
 *Watch how Hephaestus coordinates multiple AI agents, monitors their trajectories, and builds workflows dynamically*
 
 </div>
+
+---
+
+## NEW: Hephaestus Dev
+
+**Ready to use Hephaestus as a development tool?** We've built **Hephaestus Dev** - a pre-configured setup with 5 production-ready workflows for software development:
+
+| Workflow | What it does |
+|----------|--------------|
+| **PRD to Software Builder** | Build complete software from a Product Requirements Document |
+| **Bug Fix** | Analyze, fix, and verify bugs systematically |
+| **Index Repository** | Scan and index a codebase to build knowledge in memory |
+| **Feature Development** | Add features to existing codebases following patterns |
+| **Documentation Generation** | Generate comprehensive docs for existing codebases |
+
+```bash
+python run_hephaestus_dev.py --path /path/to/project
+```
+
+**[Get started with Hephaestus Dev →](https://ido-levi.github.io/Hephaestus/docs/getting-started/hephaestus-dev)**
 
 ---
 

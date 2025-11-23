@@ -206,13 +206,30 @@ class ProjectContext(Base):
     description = Column(Text)
 
 
+class WorkflowDefinition(Base):
+    """Workflow definition model representing a reusable workflow template."""
+
+    __tablename__ = "workflow_definitions"
+
+    id = Column(String, primary_key=True)  # e.g., "prd-to-software"
+    name = Column(String, nullable=False)  # "PRD to Software Builder"
+    description = Column(String)
+    phases_config = Column(JSON)  # Serialized phase definitions
+    workflow_config = Column(JSON)  # has_result, result_criteria, on_result_found, etc.
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    executions = relationship("Workflow", back_populates="definition")
+
+
 class Workflow(Base):
-    """Workflow model representing a collection of phases."""
+    """Workflow model representing a collection of phases (an execution instance)."""
 
     __tablename__ = "workflows"
 
     id = Column(String, primary_key=True)
     name = Column(String, nullable=False)
+    description = Column(String)  # User-provided name/description for this execution (e.g., "My URL Shortener")
     phases_folder_path = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     status = Column(
@@ -222,12 +239,22 @@ class Workflow(Base):
         nullable=False,
     )
 
+    # Link to workflow definition
+    definition_id = Column(String, ForeignKey("workflow_definitions.id"))
+
+    # Working directory for this execution (can override default)
+    working_directory = Column(String)
+
+    # Launch parameters used to start this execution (for UI-launched workflows)
+    launch_params = Column(JSON)
+
     # Result tracking fields
     result_found = Column(Boolean, default=False)
     result_id = Column(String, ForeignKey("workflow_results.id"))
     completed_by_result = Column(Boolean, default=False)
 
     # Relationships
+    definition = relationship("WorkflowDefinition", back_populates="executions")
     phases = relationship("Phase", back_populates="workflow", order_by="Phase.order")
     result = relationship("WorkflowResult", foreign_keys=[result_id])
     all_results = relationship("WorkflowResult", foreign_keys="WorkflowResult.workflow_id")

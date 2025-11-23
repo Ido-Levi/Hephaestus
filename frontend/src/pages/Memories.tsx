@@ -6,6 +6,8 @@ import { Database, User, Clock, Search } from 'lucide-react';
 import { apiService } from '@/services/api';
 import { Memory } from '@/types';
 import { useWebSocket } from '@/context/WebSocketContext';
+import { useWorkflow } from '@/context/WorkflowContext';
+import ExecutionSelector from '@/components/ExecutionSelector';
 import { formatDistanceToNow } from 'date-fns';
 import AgentDetailModal from '@/components/AgentDetailModal';
 import ClickableAgentCard from '@/components/ClickableAgentCard';
@@ -182,6 +184,7 @@ const Memories: React.FC = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [newMemoryIds, setNewMemoryIds] = useState<Set<string>>(new Set());
   const { subscribe } = useWebSocket();
+  const { selectedExecution } = useWorkflow();
   const observerTarget = useRef<HTMLDivElement>(null);
 
   const MEMORIES_PER_PAGE = 30;
@@ -284,9 +287,18 @@ const Memories: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-800">Memories</h1>
-        <p className="text-gray-600 mt-1">Shared knowledge base from all agents</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800">Memories</h1>
+          <p className="text-gray-600 mt-1">
+            {selectedExecution ? (
+              <>Memories for: {selectedExecution.description || selectedExecution.definition_name}</>
+            ) : (
+              'Shared knowledge base from all agents'
+            )}
+          </p>
+        </div>
+        <ExecutionSelector />
       </div>
 
       {/* Stats */}

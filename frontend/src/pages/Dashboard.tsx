@@ -1,13 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Bot, FileText, Database, AlertCircle, TrendingUp, Clock, Ban } from 'lucide-react';
+import { Bot, FileText, Database, AlertCircle, TrendingUp, Clock, Ban, Rocket } from 'lucide-react';
 import { apiService } from '@/services/api';
 import { DashboardStats } from '@/types';
 import { useWebSocket } from '@/context/WebSocketContext';
+import { useWorkflow } from '@/context/WorkflowContext';
 import { formatDistanceToNow } from 'date-fns';
 import QueueStatusWidget from '@/components/QueueStatusWidget';
 import BlockedTasksView from '@/components/BlockedTasksView';
+import ExecutionSelector from '@/components/ExecutionSelector';
+import LaunchWorkflowModal from '@/components/LaunchWorkflowModal';
+import { Button } from '@/components/ui/button';
 
 const StatCard: React.FC<{
   title: string;
@@ -70,18 +74,22 @@ const ActivityItem: React.FC<{ activity: any; isNew?: boolean }> = ({ activity, 
 const Dashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [showLaunchModal, setShowLaunchModal] = useState(false);
   const { subscribe } = useWebSocket();
+  const { selectedExecutionId, selectedExecution, refreshExecutions } = useWorkflow();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['dashboard-stats'],
-    queryFn: apiService.getDashboardStats,
+    queryKey: ['dashboard-stats', selectedExecutionId],
+    queryFn: () => apiService.getDashboardStats(selectedExecutionId || undefined),
     refetchInterval: 5000, // Refresh every 5 seconds
+    enabled: !!selectedExecutionId,
   });
 
   const { data: blockedTasks } = useQuery({
-    queryKey: ['blocked-tasks'],
-    queryFn: apiService.getBlockedTasks,
+    queryKey: ['blocked-tasks', selectedExecutionId],
+    queryFn: () => apiService.getBlockedTasks(selectedExecutionId || undefined),
     refetchInterval: 5000, // Refresh every 5 seconds
+    enabled: !!selectedExecutionId,
   });
 
   useEffect(() => {
@@ -136,27 +144,114 @@ const Dashboard: React.FC = () => {
     };
   }, [subscribe]);
 
+  const handleLaunchWorkflow = (workflowId: string) => {
+    refreshExecutions();
+  };
+
+  if (!selectedExecutionId) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
+            <p className="text-gray-600 mt-1">Real-time system overview</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button onClick={() => setShowLaunchModal(true)} className="bg-blue-600 hover:bg-blue-700">
+              <Rocket className="w-4 h-4 mr-2" />
+              Launch Workflow
+            </Button>
+            <ExecutionSelector />
+          </div>
+        </div>
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-12 text-center">
+          <p className="text-gray-500 text-lg">Select a workflow to view dashboard statistics</p>
+        </div>
+        <LaunchWorkflowModal
+          open={showLaunchModal}
+          onClose={() => setShowLaunchModal(false)}
+          onLaunch={handleLaunchWorkflow}
+        />
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
+            <p className="text-gray-600 mt-1">Real-time system overview</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button onClick={() => setShowLaunchModal(true)} className="bg-blue-600 hover:bg-blue-700">
+              <Rocket className="w-4 h-4 mr-2" />
+              Launch Workflow
+            </Button>
+            <ExecutionSelector />
+          </div>
+        </div>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+        <LaunchWorkflowModal
+          open={showLaunchModal}
+          onClose={() => setShowLaunchModal(false)}
+          onLaunch={handleLaunchWorkflow}
+        />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-        <p className="text-red-600">Failed to load dashboard stats</p>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
+            <p className="text-gray-600 mt-1">Real-time system overview</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button onClick={() => setShowLaunchModal(true)} className="bg-blue-600 hover:bg-blue-700">
+              <Rocket className="w-4 h-4 mr-2" />
+              Launch Workflow
+            </Button>
+            <ExecutionSelector />
+          </div>
+        </div>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+          <p className="text-red-600">Failed to load dashboard stats</p>
+        </div>
+        <LaunchWorkflowModal
+          open={showLaunchModal}
+          onClose={() => setShowLaunchModal(false)}
+          onLaunch={handleLaunchWorkflow}
+        />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
-        <p className="text-gray-600 mt-1">Real-time system overview</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
+          <p className="text-gray-600 mt-1">
+            {selectedExecution ? (
+              <>Workflow: {selectedExecution.description || selectedExecution.definition_name}</>
+            ) : (
+              'Real-time system overview'
+            )}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button onClick={() => setShowLaunchModal(true)} className="bg-blue-600 hover:bg-blue-700">
+            <Rocket className="w-4 h-4 mr-2" />
+            Launch Workflow
+          </Button>
+          <ExecutionSelector />
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -234,6 +329,12 @@ const Dashboard: React.FC = () => {
           )}
         </div>
       </div>
+
+      <LaunchWorkflowModal
+        open={showLaunchModal}
+        onClose={() => setShowLaunchModal(false)}
+        onLaunch={handleLaunchWorkflow}
+      />
     </div>
   );
 };

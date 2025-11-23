@@ -520,7 +520,7 @@ npm install  # First time only
 npm run dev
 
 # Terminal 3: Run your workflow
-python run_example.py --path /tmp/test_prd --drop-db
+python run_hephaestus_dev.py --path /tmp/test_prd --drop-db
 ```
 
 **Note**: The SDK automatically starts the Hephaestus server - you don't need to run `run_server.py` separately!
@@ -534,9 +534,9 @@ Open your browser to `http://localhost:3000`. You'll see:
 
 ## Using Example Workflows
 
-### Quick Start: Personal Task Manager
+### Quick Start: Run the Example
 
-Instead of building your own workflow from scratch, use our pre-built **Personal Task Manager** example:
+Instead of building your own workflow from scratch, use our pre-built example with two workflows:
 
 ## ⚠️ Important: Initial Claude CLI Setup
 
@@ -556,17 +556,41 @@ Before running the Hephaestus application for the first time if you haven't used
 docker run -d -p 6333:6333 qdrant/qdrant
 
 # Terminal 2: Run the complete example
-python run_example.py
+python run_hephaestus_dev.py
 ```
 
-The `run_example.py` script will:
+The `run_hephaestus_dev.py` script will:
 1. **Check and setup sub-agents** in `~/.claude/agents/`
 2. **Prompt for project path** (creates directory automatically)
 3. **Copy PRD.md and .gitignore** to your project
 4. **Initialize git repository** with initial commit
 5. **Update config** with your project path
-6. **Start Hephaestus** with the PRD to Software Builder workflow
-7. **Create initial task** to analyze the Personal Task Manager PRD
+6. **Start Hephaestus** with two workflow definitions registered:
+   - **PRD to Software Builder** - Build software from requirements
+   - **Bug Fix** - Analyze, fix, and verify bugs
+
+### Launching Workflows from UI
+
+Once Hephaestus is running, open **http://localhost:3000** and navigate to **Workflow Executions**:
+
+1. Click **"Launch Workflow"**
+2. Select a workflow (e.g., "PRD to Software Builder")
+3. Fill in the form:
+   - Project Name: "Personal Task Manager"
+   - Project Type: "Web Application"
+   - PRD Content: (paste your full PRD here)
+   - Technology Preferences: (optional)
+4. Review the preview
+5. Click **"Launch"**
+
+The workflow starts automatically with your inputs!
+
+**Available workflows:**
+
+| Workflow | Description | Form Fields |
+|----------|-------------|-------------|
+| PRD to Software Builder | Build software from a PRD | Project name, project type, PRD content, tech preferences |
+| Bug Fix | Fix and verify bugs | Bug description, type, severity, reproduction steps |
 
 **What you get:**
 - A complete Personal Task Manager app with:
@@ -580,46 +604,80 @@ The `run_example.py` script will:
 2. Create Kanban tickets for each component
 3. Design each component in parallel (Phase 2)
 4. Implement each component (Phase 3)
-5. Test each component (Phase 4)
-6. Document the system (Phase 5)
-7. Submit final result when complete
+5. Test and validate (Phase 4)
+6. Submit final result when complete
 
 **Track progress at:**
-- Kanban Board: http://localhost:8001/tickets
 - Frontend UI: http://localhost:3000/
+- Workflow Executions: http://localhost:3000/workflow-executions
+- Kanban Board: http://localhost:3000/tickets
 
 ### Advanced: Build Your Own Workflow
 
-For custom workflows, use `example_workflows/prd_to_software/`:
+Want to create custom workflows? Here's the pattern:
 
-```bash
-# Terminal 1: Start Qdrant
-docker run -d -p 6333:6333 qdrant/qdrant
+```python
+from src.sdk import HephaestusSDK
+from src.sdk.models import (
+    Phase, WorkflowConfig, LaunchTemplate,
+    LaunchParameter, WorkflowDefinition
+)
 
-# Terminal 2: Start frontend
-cd frontend && npm run dev
+# 1. Define phases
+my_phases = [
+    Phase(id=1, name="analyze", description="Analyze the problem", ...),
+    Phase(id=2, name="solve", description="Implement solution", ...),
+    Phase(id=3, name="verify", description="Verify it works", ...),
+]
 
-# Terminal 3: Run the PRD workflow
-python run_prd_workflow.py
+# 2. Configure result handling
+my_config = WorkflowConfig(
+    has_result=True,
+    result_criteria="Problem is solved",
+    on_result_found="complete"
+)
+
+# 3. Create launch template for UI
+my_template = LaunchTemplate(
+    parameters=[
+        LaunchParameter(name="problem", label="Problem", type="textarea", required=True),
+        LaunchParameter(name="priority", label="Priority", type="dropdown",
+                       options=["Low", "Medium", "High"], default="Medium"),
+    ],
+    phase_1_task_prompt="Analyze this problem: {problem}\nPriority: {priority}"
+)
+
+# 4. Bundle into WorkflowDefinition
+my_workflow = WorkflowDefinition(
+    id="problem-solver",
+    name="Problem Solver",
+    description="Analyze and solve problems",
+    phases=my_phases,
+    config=my_config,
+    launch_template=my_template,
+)
+
+# 5. Register with SDK
+sdk = HephaestusSDK(
+    workflow_definitions=[my_workflow],
+    working_directory="/path/to/project",
+    main_repo_path="/path/to/project",
+)
+
+sdk.start()
+# Users can now launch from http://localhost:3000
 ```
 
 **Note**: Make sure you have:
-1. Set up your working directory path in `hephaustus_config.yaml` (see Working Directory Setup above)
-2. Created a `PRD.md` file in your project directory
-3. Initialized the directory as a git repository (`git init`)
+1. Set up your working directory path in `hephaestus_config.yaml`
+2. Initialized the directory as a git repository (`git init`)
 
-The workflow will automatically find the `PRD.md` in your configured working directory.
+See [Defining Phases](../sdk/phases.md) and [Launch Templates](../features/launch-templates.md) for complete guides.
 
-The `run_prd_workflow.py` script shows how to:
-- Initialize the SDK with pre-configured phases
-- Set up Git worktree isolation
-- Create the initial task
-- Handle workflow lifecycle
-
-Other example workflows:
-- `example_workflows/crackme_solving/` - Reverse engineering workflow
-
-See `run_prd_workflow.py` for a complete example of workflow configuration and execution.
+**Example workflows to study:**
+- `example_workflows/prd_to_software/phases.py` - PRD to software workflow
+- `example_workflows/bug_fix/phases.py` - Bug fixing workflow
+- `run_hephaestus_dev.py` - Multi-workflow setup
 
 ## What Happens
 
