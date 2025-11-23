@@ -364,7 +364,7 @@ Your task:
 
 1. **parameters**: Define form fields users fill out
 2. **phase_1_task_prompt**: The template for the initial task
-3. **{placeholders}**: Get replaced with user inputs when launched
+3. **`{placeholders}`**: Get replaced with user inputs when launched
 
 **Available parameter types:**
 - `text`: Single-line text input
