@@ -221,8 +221,8 @@ class LangChainLLMClient:
                     openai_api_key=api_key,
                     base_url=base_url,
                     default_headers={
-                        "HTTP-Referer": "https://github.com/hephaestus",
-                        "X-Title": "Hephaestus Multi-Provider LLM"
+                        "HTTP-Referer": "https://github.com/Ido-Levi/Hephaestus",
+                        "X-Title": "Hephaestus - Semi Structured Agentic Framework"
                     },
                     model_kwargs=model_kwargs  # extra_body gets passed through to the API
                 )

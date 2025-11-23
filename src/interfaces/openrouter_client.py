@@ -58,8 +58,8 @@ class OpenRouterClient:
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
-            "HTTP-Referer": "https://github.com/hephaestus",
-            "X-Title": "Hephaestus Multi-Provider LLM"
+            "HTTP-Referer": "https://github.com/Ido-Levi/Hephaestus",
+            "X-Title": "Hephaestus - Semi Structured Agentic Framework"
         }
 
         data = {
