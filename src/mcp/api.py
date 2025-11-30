@@ -362,14 +362,22 @@ class FrontendAPI:
         finally:
             session.close()
 
-    async def get_graph_data(self) -> Dict[str, Any]:
+    async def get_graph_data(self, workflow_id: Optional[str] = None) -> Dict[str, Any]:
         """Get graph data for visualization."""
         session = self.db_manager.get_session()
         try:
-            # Get all tasks and agents
-            tasks = session.query(Task).all()
-            agents = session.query(Agent).all()
-            phases = session.query(Phase).all()
+            # Get tasks filtered by workflow_id if provided
+            if workflow_id:
+                tasks = session.query(Task).filter(Task.workflow_id == workflow_id).all()
+                phases = session.query(Phase).filter(Phase.workflow_id == workflow_id).all()
+                # Get agents that are assigned to tasks in this workflow
+                agent_ids = set(t.assigned_agent_id for t in tasks if t.assigned_agent_id)
+                agent_ids.update(t.created_by_agent_id for t in tasks if t.created_by_agent_id)
+                agents = session.query(Agent).filter(Agent.id.in_(agent_ids)).all() if agent_ids else []
+            else:
+                tasks = session.query(Task).all()
+                agents = session.query(Agent).all()
+                phases = session.query(Phase).all()
 
             # Build nodes
             nodes = []
@@ -468,7 +476,7 @@ class FrontendAPI:
                         "type": "assigned",
                     })
 
-            # Parent-child task edges
+            # Parent-child task edges (based on parent_task_id)
             for task in tasks:
                 if task.parent_task_id:
                     edges.append({
@@ -478,6 +486,25 @@ class FrontendAPI:
                         "label": "subtask",
                         "type": "subtask",
                     })
+
+            # Task spawning edges (tasks created by the agent assigned to execute another task)
+            # This captures the actual task hierarchy: if Task A is assigned to Agent X,
+            # and Agent X creates Task B, then A -> B (A spawned B)
+            task_ids = {task.id for task in tasks}
+            for task in tasks:
+                if task.assigned_agent_id:
+                    # Find tasks created by this task's assigned agent
+                    for other_task in tasks:
+                        if (other_task.created_by_agent_id == task.assigned_agent_id
+                            and other_task.id != task.id
+                            and other_task.id in task_ids):
+                            edges.append({
+                                "id": f"edge_spawned_{task.id}_{other_task.id}",
+                                "source": f"task_{task.id}",
+                                "target": f"task_{other_task.id}",
+                                "label": "spawned",
+                                "type": "subtask",
+                            })
 
             # Create phase mapping - include both UUID and numeric keys
             phase_info = {}
@@ -1518,9 +1545,9 @@ def create_frontend_routes(db_manager: DatabaseManager, agent_manager: AgentMana
         return await frontend_api.get_memories(skip, limit, memory_type, search)
 
     @router.get("/graph")
-    async def get_graph_data():
+    async def get_graph_data(workflow_id: Optional[str] = None):
         """Get graph visualization data."""
-        return await frontend_api.get_graph_data()
+        return await frontend_api.get_graph_data(workflow_id=workflow_id)
 
     @router.get("/workflow")
     async def get_workflow():

@@ -115,8 +115,9 @@ export const apiService = {
   },
 
   // Graph
-  getGraphData: async (): Promise<GraphData> => {
-    const { data } = await api.get('/graph');
+  getGraphData: async (workflowId?: string): Promise<GraphData> => {
+    const params = workflowId ? `?workflow_id=${workflowId}` : '';
+    const { data } = await api.get(`/graph${params}`);
     return data;
   },
 

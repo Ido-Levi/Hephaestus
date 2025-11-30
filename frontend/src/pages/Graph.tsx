@@ -5,63 +5,49 @@ import ReactFlow, {
   Edge,
   Controls,
   Background,
+  BackgroundVariant,
   useNodesState,
   useEdgesState,
   Position,
-  ConnectionMode,
   Handle,
   MiniMap,
-} from 'react-flow-renderer';
-import { motion, AnimatePresence } from 'framer-motion';
-import { GitBranch, Bot, FileText, X, RefreshCw, Layers, ArrowRight, Play, Pause, Settings } from 'lucide-react';
+  Panel,
+  MarkerType,
+} from 'reactflow';
+import dagre from 'dagre';
+import { GitBranch, FileText, RefreshCw, Play, Pause, CheckCircle, Clock, AlertCircle, Circle } from 'lucide-react';
 import { apiService } from '@/services/api';
-import { GraphNode, GraphEdge, PhaseInfo } from '@/types';
+import { GraphNode, GraphEdge } from '@/types';
 import { useWebSocket } from '@/context/WebSocketContext';
 import { useWorkflow } from '@/context/WorkflowContext';
 import ExecutionSelector from '@/components/ExecutionSelector';
 import StatusBadge from '@/components/StatusBadge';
 import TaskDetailModal from '@/components/TaskDetailModal';
-import RealTimeAgentOutput from '@/components/RealTimeAgentOutput';
+import 'reactflow/dist/style.css';
 
-// Custom node component for agents
-const AgentNode: React.FC<{ data: any }> = ({ data }) => {
-  const isExternal = data.status === 'external';
-  const isHighlighted = data.isHighlighted;
-  const isDimmed = data.isDimmed;
+// Layout direction type
+type LayoutDirection = 'TB' | 'LR';
 
-  const formatTime = (timestamp: string) => {
-    if (!timestamp) return '';
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-  };
+// Status to border color mapping
+const statusBorderColors: Record<string, string> = {
+  done: 'border-green-500',
+  completed: 'border-green-500',
+  in_progress: 'border-blue-500',
+  working: 'border-blue-500',
+  failed: 'border-red-500',
+  pending: 'border-gray-400',
+  queued: 'border-gray-400',
+  assigned: 'border-yellow-500',
+  blocked: 'border-orange-500',
+};
 
-  const baseClasses = isExternal ? 'bg-purple-50 border-purple-400' : 'bg-blue-50 border-blue-400';
-  const highlightClasses = isHighlighted ? 'ring-4 ring-red-400 ring-opacity-75 shadow-2xl scale-105' : '';
-  const dimClasses = isDimmed ? 'opacity-30' : '';
-
-  return (
-    <div className={`${baseClasses} ${highlightClasses} ${dimClasses} border-2 rounded-lg p-2 min-w-[140px] shadow-md relative transition-all duration-300`}>
-      <Handle
-        type="target"
-        position={Position.Left}
-        style={{ background: isExternal ? '#9333EA' : '#3B82F6', width: 8, height: 8 }}
-      />
-      <Handle
-        type="source"
-        position={Position.Right}
-        style={{ background: isExternal ? '#9333EA' : '#3B82F6', width: 8, height: 8 }}
-      />
-      <div className="flex items-center gap-1 mb-1">
-        <Bot className={`w-4 h-4 ${isExternal ? 'text-purple-600' : 'text-blue-600'}`} />
-        <span className="text-xs font-semibold text-gray-800">{isExternal ? 'MCP' : 'Agent'}</span>
-      </div>
-      <p className="text-xs font-mono text-gray-700">{data.id.substring(0, 8)}...</p>
-      {data.created_at && (
-        <p className="text-xs text-gray-500">🕐 {formatTime(data.created_at)}</p>
-      )}
-      {!isExternal && <StatusBadge status={data.status} size="sm" />}
-    </div>
-  );
+// Phase background colors
+const phaseBackgroundColors: Record<number, string> = {
+  1: 'bg-green-50',
+  2: 'bg-blue-50',
+  3: 'bg-yellow-50',
+  4: 'bg-pink-50',
+  5: 'bg-indigo-50',
 };
 
 // Custom node component for tasks
@@ -75,399 +61,161 @@ const TaskNode: React.FC<{ data: any }> = ({ data }) => {
     return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   };
 
-  const phaseColors: Record<number, string> = {
-    1: 'bg-green-50 border-green-400',
-    2: 'bg-blue-50 border-blue-400',
-    3: 'bg-yellow-50 border-yellow-400',
-    4: 'bg-pink-50 border-pink-400',
-    5: 'bg-indigo-50 border-indigo-400',
-  };
-
-  const bgClass = phaseColors[data.phase_order] || 'bg-gray-50 border-gray-400';
+  const bgClass = phaseBackgroundColors[data.phase_order] || 'bg-gray-50';
+  const borderClass = statusBorderColors[data.status] || 'border-gray-400';
   const highlightClasses = isHighlighted ? 'ring-4 ring-red-400 ring-opacity-75 shadow-2xl scale-105' : '';
   const dimClasses = isDimmed ? 'opacity-30' : '';
 
+  // Status icon
+  const StatusIcon = () => {
+    switch (data.status) {
+      case 'done':
+      case 'completed':
+        return <CheckCircle className="w-3 h-3 text-green-600" />;
+      case 'in_progress':
+      case 'working':
+        return <Clock className="w-3 h-3 text-blue-600" />;
+      case 'failed':
+        return <AlertCircle className="w-3 h-3 text-red-600" />;
+      default:
+        return <Circle className="w-3 h-3 text-gray-400" />;
+    }
+  };
+
   return (
-    <div className={`${bgClass} ${highlightClasses} ${dimClasses} border-2 rounded-lg p-2 min-w-[160px] max-w-[200px] shadow-md relative transition-all duration-300`}>
+    <div className={`${bgClass} ${borderClass} ${highlightClasses} ${dimClasses} border-3 rounded-lg p-3 min-w-[200px] max-w-[280px] shadow-md relative transition-all duration-300`}
+         style={{ borderWidth: '3px' }}>
       <Handle
         type="target"
-        position={Position.Left}
-        style={{ background: '#10B981', width: 8, height: 8 }}
+        position={Position.Top}
+        style={{ background: '#F59E0B', width: 10, height: 10 }}
       />
       <Handle
         type="source"
-        position={Position.Right}
-        style={{ background: '#10B981', width: 8, height: 8 }}
+        position={Position.Bottom}
+        style={{ background: '#F59E0B', width: 10, height: 10 }}
       />
-      <div className="flex items-center gap-1 mb-1">
-        <FileText className="w-4 h-4 text-gray-600" />
-        <span className="text-xs font-semibold text-gray-800">Task</span>
-        {data.phase_name && (
-          <span className="text-xs px-1.5 py-0.5 bg-white bg-opacity-70 text-gray-700 rounded ml-auto font-bold">
-            P{data.phase_order}
-          </span>
-        )}
+
+      {/* Header with phase badge and status icon */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1">
+          <FileText className="w-4 h-4 text-gray-600" />
+          <span className="text-xs font-semibold text-gray-700">Task</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <StatusIcon />
+          {data.phase_order && (
+            <span className="text-xs px-1.5 py-0.5 bg-white bg-opacity-80 text-gray-700 rounded font-bold shadow-sm">
+              P{data.phase_order}
+            </span>
+          )}
+        </div>
       </div>
-      <p className="text-xs text-gray-700 line-clamp-2">
-        {data.description?.substring(0, 50)}...
+
+      {/* Description */}
+      <p className="text-xs text-gray-700 line-clamp-2 mb-2">
+        {data.description?.substring(0, 80)}{data.description?.length > 80 ? '...' : ''}
       </p>
-      {data.created_at && (
-        <p className="text-xs text-gray-500">🕐 {formatTime(data.created_at)}</p>
-      )}
-      <StatusBadge status={data.status} size="sm" />
+
+      {/* Footer with time and status badge */}
+      <div className="flex items-center justify-between">
+        {data.created_at && (
+          <p className="text-xs text-gray-500">{formatTime(data.created_at)}</p>
+        )}
+        <StatusBadge status={data.status} size="sm" />
+      </div>
     </div>
   );
 };
 
 const nodeTypes = {
-  agent: AgentNode,
   task: TaskNode,
 };
 
-// Node preview modal
-const NodePreview: React.FC<{ node: any; onClose: () => void }> = ({ node, onClose }) => {
-  if (!node) return null;
+// Dagre layout function
+const getLayoutedElements = (
+  nodes: Node[],
+  edges: Edge[],
+  direction: LayoutDirection = 'TB'
+): Node[] => {
+  if (nodes.length === 0) return [];
 
-  return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-        onClick={onClose}
-      >
-        <motion.div
-          initial={{ scale: 0.9 }}
-          animate={{ scale: 1 }}
-          className="bg-white rounded-lg shadow-xl max-w-lg w-full"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="px-6 py-4 border-b flex items-center justify-between">
-            <div className="flex items-center">
-              {node.type === 'agent' ? (
-                <Bot className="w-5 h-5 mr-2 text-blue-600" />
-              ) : (
-                <FileText className="w-5 h-5 mr-2 text-green-600" />
-              )}
-              <h3 className="text-lg font-semibold text-gray-800">
-                {node.type === 'agent' ? 'Agent' : 'Task'} Details
-              </h3>
-            </div>
-            <button
-              onClick={onClose}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+  const dagreGraph = new dagre.graphlib.Graph();
+  dagreGraph.setDefaultEdgeLabel(() => ({}));
 
-          <div className="p-6 space-y-3">
-            <div>
-              <p className="text-sm text-gray-600">ID</p>
-              <p className="font-mono text-xs text-gray-800">{node.data.id}</p>
-            </div>
+  const nodeWidth = 280;
+  const nodeHeight = 120;
 
-            {node.type === 'agent' ? (
-              <>
-                <div>
-                  <p className="text-sm text-gray-600">Status</p>
-                  <StatusBadge status={node.data.status} />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">CLI Type</p>
-                  <p className="text-gray-800">{node.data.cli_type}</p>
-                </div>
-                {node.data.current_task_id && (
-                  <div>
-                    <p className="text-sm text-gray-600">Current Task</p>
-                    <p className="font-mono text-xs text-gray-800">
-                      {node.data.current_task_id}
-                    </p>
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                <div>
-                  <p className="text-sm text-gray-600">Description</p>
-                  <p className="text-gray-800">{node.data.description}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Status</p>
-                  <StatusBadge status={node.data.status} />
-                </div>
-                {node.data.phase_name && (
-                  <div>
-                    <p className="text-sm text-gray-600">Phase</p>
-                    <p className="text-gray-800">
-                      Phase {node.data.phase_order}: {node.data.phase_name}
-                    </p>
-                  </div>
-                )}
-                <div>
-                  <p className="text-sm text-gray-600">Priority</p>
-                  <span
-                    className={`text-xs px-2 py-1 rounded ${
-                      node.data.priority === 'high'
-                        ? 'bg-red-100 text-red-700'
-                        : node.data.priority === 'medium'
-                        ? 'bg-yellow-100 text-yellow-700'
-                        : 'bg-gray-100 text-gray-700'
-                    }`}
-                  >
-                    {node.data.priority}
-                  </span>
-                </div>
-              </>
-            )}
-          </div>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
-  );
+  dagreGraph.setGraph({
+    rankdir: direction,
+    nodesep: 80,
+    ranksep: 100,
+    marginx: 50,
+    marginy: 50,
+  });
+
+  nodes.forEach((node) => {
+    dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+  });
+
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(dagreGraph);
+
+  return nodes.map((node) => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    return {
+      ...node,
+      position: {
+        x: nodeWithPosition.x - nodeWidth / 2,
+        y: nodeWithPosition.y - nodeHeight / 2,
+      },
+      sourcePosition: direction === 'TB' ? Position.Bottom : Position.Right,
+      targetPosition: direction === 'TB' ? Position.Top : Position.Left,
+    };
+  });
 };
 
 const Graph: React.FC = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const [selectedNode, setSelectedNode] = useState<any>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [selectedAgent, setSelectedAgent] = useState<any>(null);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [highlightedNodes, setHighlightedNodes] = useState<Set<string>>(new Set());
   const [highlightedEdges, setHighlightedEdges] = useState<Set<string>>(new Set());
-  const [columnHeaders, setColumnHeaders] = useState<{ label: string; x: number; width: number; type: 'agents' | 'tasks' }[]>([]);
+  const [layoutDirection, setLayoutDirection] = useState<LayoutDirection>('TB');
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState(15);
   const { subscribe } = useWebSocket();
   const { selectedExecution } = useWorkflow();
 
+  const workflowId = selectedExecution?.id;
+
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['graph'],
-    queryFn: apiService.getGraphData,
+    queryKey: ['graph', workflowId],
+    queryFn: () => apiService.getGraphData(workflowId),
     refetchInterval: autoRefresh ? refreshInterval * 1000 : false,
+    enabled: !!workflowId,
   });
 
-  // Create proper alternating columns
-  const layoutNodes = useCallback((graphNodes: GraphNode[], graphEdges: GraphEdge[], phases: Record<string, PhaseInfo>): Node[] => {
-    const nodeMap = new Map<string, Node>();
-
-    // Add phase info to task nodes
-    graphNodes.forEach(node => {
-      if (node.type === 'task' && node.data.phase_id && phases[node.data.phase_id]) {
-        const phase = phases[node.data.phase_id];
-        node.data.phase_name = phase.name;
-        node.data.phase_order = phase.order;
-      }
-    });
-
-    // Sort phases and deduplicate
-    const sortedPhases = Object.values(phases)
-      .sort((a, b) => a.order - b.order)
-      .filter((phase, index, array) =>
-        index === 0 || phase.order !== array[index - 1].order
-      );
-
-
-    // Create alternating column structure: Agents → Tasks → Agents → Tasks
-    const columns: { id: string; type: 'agents' | 'tasks'; nodes: GraphNode[]; label: string }[] = [];
-
-    // Column 0: External agents
-    columns.push({
-      id: 'external_agents',
-      type: 'agents',
-      nodes: [],
-      label: 'External Agents'
-    });
-
-    // For each phase: Tasks column, then Agents column (if not last phase)
-    sortedPhases.forEach((phase, index) => {
-      // Tasks column for this phase
-      columns.push({
-        id: `tasks_p${phase.order}`,
-        type: 'tasks',
-        nodes: [],
-        label: `Phase ${phase.order}: ${phase.name}`
-      });
-
-      // Agents column for agents that work on NEXT phase (if there is a next phase)
-      if (index < sortedPhases.length - 1) {
-        const nextPhase = sortedPhases[index + 1];
-        columns.push({
-          id: `agents_for_p${nextPhase.order}`,
-          type: 'agents',
-          nodes: [],
-          label: `Agents→P${nextPhase.order}`
-        });
-      }
-    });
-
-
-    // First pass: Place all tasks in their phase columns
-    graphNodes.forEach(node => {
-      if (node.type === 'task' && node.data.phase_order) {
-        const column = columns.find(col => col.id === `tasks_p${node.data.phase_order}`);
-        if (column) {
-          column.nodes.push(node);
-        }
-      }
-    });
-
-
-    // Second pass: Place agents to create the alternating flow
-    // Separate external and internal agents
-    const externalAgents = graphNodes.filter(n => n.type === 'agent' && n.data.status === 'external');
-    const internalAgents = graphNodes.filter(n => n.type === 'agent' && n.data.status !== 'external');
-
-    // Place external agents in column 0
-    externalAgents.forEach(agent => {
-      columns[0].nodes.push(agent);
-    });
-
-    // Find the agent columns (agents_for_pX)
-    const agentColumns = columns.filter(col => col.type === 'agents' && col.id !== 'external_agents');
-
-    if (agentColumns.length > 0 && internalAgents.length > 0) {
-      // Strategy: Distribute internal agents proportionally based on task counts in subsequent phases
-      const p2TaskCount = graphNodes.filter(n => n.type === 'task' && n.data.phase_order === 2).length;
-      const p3TaskCount = graphNodes.filter(n => n.type === 'task' && n.data.phase_order === 3).length;
-
-      // Calculate proportional distribution
-      const totalTasks = p2TaskCount + p3TaskCount;
-      let agentsForP2 = 0;
-      let agentsForP3 = 0;
-
-      if (totalTasks > 0) {
-        agentsForP2 = Math.round((p2TaskCount / totalTasks) * internalAgents.length);
-        agentsForP3 = internalAgents.length - agentsForP2;
-      } else {
-        // Even split if no tasks
-        agentsForP2 = Math.floor(internalAgents.length / 2);
-        agentsForP3 = internalAgents.length - agentsForP2;
-      }
-
-      // Place agents in columns
-      internalAgents.forEach((agent, index) => {
-        if (index < agentsForP2) {
-          // Place in agents_for_p2 column
-          const p2Column = columns.find(col => col.id === 'agents_for_p2');
-          if (p2Column) {
-            p2Column.nodes.push(agent);
-          } else {
-            columns[0].nodes.push(agent); // fallback
-          }
-        } else {
-          // Place in agents_for_p3 column
-          const p3Column = columns.find(col => col.id === 'agents_for_p3');
-          if (p3Column) {
-            p3Column.nodes.push(agent);
-          } else {
-            columns[0].nodes.push(agent); // fallback
-          }
-        }
-      });
-    } else {
-      // Fallback: put all internal agents in external column
-      internalAgents.forEach(agent => {
-        columns[0].nodes.push(agent);
-      });
-    }
-
-    // Layout configuration
-    const columnWidth = 250;
-    const nodeHeight = 70;
-    const nodeSpacing = 15;
-    const startX = 100;
-    const startY = 120;
-
-    // Track headers
-    const headers: { label: string; x: number; width: number; type: 'agents' | 'tasks' }[] = [];
-
-    // Position nodes in each column
-    let currentX = startX;
-
-    columns.forEach((column) => {
-      if (column.nodes.length === 0 && column.id !== 'external_agents') {
-        // Skip empty columns except external agents (always show it)
-        return;
-      }
-
-      // Sort nodes to minimize edge crossings
-      column.nodes.sort((a, b) => {
-        // Sort by ID for consistency
-        return a.id.localeCompare(b.id);
-      });
-
-      // Calculate vertical positions
-      const totalHeight = column.nodes.length * (nodeHeight + nodeSpacing);
-      const columnStartY = startY + Math.max(0, (600 - totalHeight) / 2);
-
-      column.nodes.forEach((node, index) => {
-        const y = columnStartY + index * (nodeHeight + nodeSpacing);
-
-        const isHighlighted = highlightedNodes.has(node.id);
-        const isDimmed = hoveredNode && !isHighlighted;
-
-        const reactFlowNode: Node = {
-          id: node.id,
-          type: node.type,
-          position: { x: currentX, y },
-          data: {
-            ...node.data,
-            isHighlighted,
-            isDimmed,
-          },
-          sourcePosition: Position.Right,
-          targetPosition: Position.Left,
-        };
-
-        nodeMap.set(node.id, reactFlowNode);
-      });
-
-      // Add header for this column
-      headers.push({
-        label: column.label,
-        x: currentX - 50,
-        width: columnWidth,
-        type: column.type
-      });
-
-      currentX += columnWidth;
-    });
-
-    // Update column headers state
-    setColumnHeaders(headers);
-
-    return Array.from(nodeMap.values());
-  }, [highlightedNodes, hoveredNode]);
-
-  // Function to find all connected nodes in the chain (excluding external agents)
-  const findConnectedChain = useCallback((nodeId: string, graphEdges: GraphEdge[]): { nodes: Set<string>, edges: Set<string> } => {
+  // Function to find all connected nodes in the chain
+  const findConnectedChain = useCallback((nodeId: string, graphEdges: Edge[]): { nodes: Set<string>, edges: Set<string> } => {
     const visitedNodes = new Set<string>();
     const connectedEdges = new Set<string>();
     const queue = [nodeId];
-
-    // Get all external agent IDs to exclude them from traversal
-    const externalAgentIds = new Set(
-      data?.nodes
-        .filter(n => n.type === 'agent' && n.data.status === 'external')
-        .map(n => n.id) || []
-    );
 
     while (queue.length > 0) {
       const currentNode = queue.shift()!;
       if (visitedNodes.has(currentNode)) continue;
       visitedNodes.add(currentNode);
 
-      // Find all edges connected to this node (both incoming and outgoing)
       graphEdges.forEach(edge => {
         if (edge.source === currentNode || edge.target === currentNode) {
           connectedEdges.add(edge.id);
-
-          // Add the other node to the queue if not visited and not an external agent
           const otherNode = edge.source === currentNode ? edge.target : edge.source;
-          if (!visitedNodes.has(otherNode) && !externalAgentIds.has(otherNode)) {
+          if (!visitedNodes.has(otherNode)) {
             queue.push(otherNode);
           }
         }
@@ -475,31 +223,70 @@ const Graph: React.FC = () => {
     }
 
     return { nodes: visitedNodes, edges: connectedEdges };
-  }, [data]);
+  }, []);
 
-  // Convert edges with better styling and highlighting
-  const convertEdges = useCallback((graphEdges: GraphEdge[]): Edge[] => {
-    return graphEdges.map(edge => {
+  // Process and layout data
+  useEffect(() => {
+    if (!data) return;
+
+    // Filter to only task nodes
+    const taskNodes = data.nodes.filter((n: GraphNode) => n.type === 'task');
+
+    // Filter to only subtask edges (task-to-task relationships)
+    const subtaskEdges = data.edges.filter((e: GraphEdge) => e.type === 'subtask');
+
+    // Add phase info to task nodes
+    const phases = data.phases || {};
+    const nodesWithPhaseInfo = taskNodes.map((node: GraphNode) => {
+      if (node.data.phase_id && phases[node.data.phase_id]) {
+        const phase = phases[node.data.phase_id];
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            phase_name: phase.name,
+            phase_order: phase.order,
+          }
+        };
+      }
+      return node;
+    });
+
+    // Convert to React Flow nodes
+    const flowNodes: Node[] = nodesWithPhaseInfo.map((node: GraphNode) => ({
+      id: node.id,
+      type: 'task',
+      position: { x: 0, y: 0 }, // Will be set by layout
+      data: {
+        ...node.data,
+        isHighlighted: highlightedNodes.has(node.id),
+        isDimmed: hoveredNode && !highlightedNodes.has(node.id),
+      },
+    }));
+
+    // Convert to React Flow edges
+    const flowEdges: Edge[] = subtaskEdges.map((edge: GraphEdge) => {
       const isHighlighted = highlightedEdges.has(edge.id);
-
       return {
         id: edge.id,
         source: edge.source,
         target: edge.target,
         type: 'smoothstep',
         animated: isHighlighted,
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          width: 16,
+          height: 16,
+        },
         style: {
-          stroke: isHighlighted ? '#FF6B6B' :
-                  edge.type === 'created' ? '#8B5CF6' :
-                  edge.type === 'assigned' ? '#10B981' :
-                  edge.type === 'subtask' ? '#F59E0B' :
-                  '#6B7280',
+          stroke: isHighlighted ? '#FF6B6B' : '#F59E0B',
           strokeWidth: isHighlighted ? 4 : 2,
           opacity: hoveredNode && !isHighlighted ? 0.3 : 1,
         },
+        label: 'spawned',
         labelStyle: {
-          fill: '#4B5563',
-          fontSize: 9,
+          fontSize: 10,
+          fill: '#6B7280',
         },
         labelBgStyle: {
           fill: '#ffffff',
@@ -507,16 +294,13 @@ const Graph: React.FC = () => {
         },
       };
     });
-  }, [highlightedEdges, hoveredNode]);
 
-  useEffect(() => {
-    if (data) {
-      const layoutedNodes = layoutNodes(data.nodes, data.edges, data.phases || {});
-      const convertedEdges = convertEdges(data.edges);
-      setNodes(layoutedNodes);
-      setEdges(convertedEdges);
-    }
-  }, [data, layoutNodes, convertEdges, setNodes, setEdges]);
+    // Apply Dagre layout
+    const layoutedNodes = getLayoutedElements(flowNodes, flowEdges, layoutDirection);
+
+    setNodes(layoutedNodes);
+    setEdges(flowEdges);
+  }, [data, layoutDirection, highlightedNodes, highlightedEdges, hoveredNode, setNodes, setEdges]);
 
   // Subscribe to WebSocket updates
   useEffect(() => {
@@ -524,55 +308,59 @@ const Graph: React.FC = () => {
       refetch();
     });
 
-    const unsubscribeAgent = subscribe('agent_created', () => {
-      refetch();
-    });
-
     return () => {
       unsubscribeTask();
-      unsubscribeAgent();
     };
   }, [subscribe, refetch]);
 
-  const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
-    if (node.type === 'task') {
-      // Open TaskDetailModal for task nodes
-      setSelectedTaskId(node.data.id);
-      setSelectedNode(null); // Close the preview
-    } else if (node.type === 'agent') {
-      // Open RealTimeAgentOutput for agent nodes
-      const agentData = {
-        id: node.data.id,
-        status: node.data.status,
-        cli_type: node.data.cli_type || 'unknown',
-        current_task_id: node.data.current_task_id || null,
-        tmux_session_name: null,
-        health_check_failures: 0,
-        created_at: node.data.created_at || '',
-        last_activity: null,
-      };
-      setSelectedAgent(agentData);
-      setSelectedNode(null); // Close the preview
-    } else {
-      // Fallback to original preview behavior for other node types
-      setSelectedNode(node);
-    }
+  const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
+    setSelectedTaskId(node.data.id);
   }, []);
 
-  const onNodeMouseEnter = useCallback((event: React.MouseEvent, node: Node) => {
-    if (!data) return;
-
+  const onNodeMouseEnter = useCallback((_event: React.MouseEvent, node: Node) => {
     setHoveredNode(node.id);
-    const chain = findConnectedChain(node.id, data.edges);
+    const chain = findConnectedChain(node.id, edges);
     setHighlightedNodes(chain.nodes);
     setHighlightedEdges(chain.edges);
-  }, [data, findConnectedChain]);
+  }, [edges, findConnectedChain]);
 
   const onNodeMouseLeave = useCallback(() => {
     setHoveredNode(null);
     setHighlightedNodes(new Set());
     setHighlightedEdges(new Set());
   }, []);
+
+  // Calculate stats
+  const stats = useMemo(() => {
+    if (!data) return { total: 0, done: 0, inProgress: 0, pending: 0, failed: 0 };
+
+    const tasks = data.nodes.filter((n: GraphNode) => n.type === 'task');
+    return {
+      total: tasks.length,
+      done: tasks.filter((t: GraphNode) => t.data.status === 'done' || t.data.status === 'completed').length,
+      inProgress: tasks.filter((t: GraphNode) => t.data.status === 'in_progress' || t.data.status === 'working').length,
+      pending: tasks.filter((t: GraphNode) => t.data.status === 'pending' || t.data.status === 'queued').length,
+      failed: tasks.filter((t: GraphNode) => t.data.status === 'failed').length,
+    };
+  }, [data]);
+
+  if (!workflowId) {
+    return (
+      <div className="h-full flex flex-col">
+        <div className="mb-4">
+          <h1 className="text-3xl font-bold text-gray-800">Task Hierarchy</h1>
+          <p className="text-gray-600 mt-1">Task spawning relationships</p>
+        </div>
+        <div className="flex-1 flex items-center justify-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+          <div className="text-center">
+            <GitBranch className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500 text-lg mb-2">No workflow selected</p>
+            <p className="text-gray-400 text-sm">Select a workflow from the header to view its task hierarchy</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -590,63 +378,23 @@ const Graph: React.FC = () => {
     );
   }
 
-  // Column headers component
-  const ColumnHeaders = () => (
-    <div className="absolute top-0 left-0 right-0 h-16 pointer-events-none z-10">
-      <div className="relative h-full">
-        {columnHeaders.map((header, index) => (
-          <div
-            key={index}
-            className="absolute flex items-center justify-center h-full"
-            style={{
-              left: header.x,
-              width: header.width,
-            }}
-          >
-            <div
-              className={`w-full h-full flex items-center justify-center border-b-2 ${
-                header.type === 'agents'
-                  ? (header.label.includes('External') ? 'bg-purple-100 border-purple-400' : 'bg-gray-100 border-gray-400')
-                  : header.label.includes('Phase 1') ? 'bg-green-100 border-green-400' :
-                    header.label.includes('Phase 2') ? 'bg-blue-100 border-blue-400' :
-                    header.label.includes('Phase 3') ? 'bg-yellow-100 border-yellow-400' :
-                    header.label.includes('Phase 4') ? 'bg-pink-100 border-pink-400' :
-                    'bg-indigo-100 border-indigo-400'
-              }`}
-            >
-              <div className="text-center px-2">
-                <p className="text-xs font-bold text-gray-700">
-                  {header.label.split(':')[0]}
-                </p>
-                {header.label.includes(':') && (
-                  <p className="text-xs text-gray-600">
-                    {header.label.split(':')[1]}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
   return (
     <div className="h-full flex flex-col">
+      {/* Header */}
       <div className="mb-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">Graph Visualization</h1>
+            <h1 className="text-3xl font-bold text-gray-800">Task Hierarchy</h1>
             <p className="text-gray-600 mt-1">
               {selectedExecution ? (
-                <>Graph for: {selectedExecution.description || selectedExecution.definition_name}</>
+                <>Viewing: {selectedExecution.description || selectedExecution.definition_name}</>
               ) : (
-                'Agent and task flow through phases'
+                'Task spawning relationships'
               )}
             </p>
           </div>
 
-          {/* Refresh Controls */}
+          {/* Controls */}
           <div className="flex items-center gap-3">
             <ExecutionSelector />
             <div className="flex items-center gap-2 text-sm">
@@ -688,62 +436,8 @@ const Graph: React.FC = () => {
         </div>
       </div>
 
-      {/* Legend */}
-      <div className="bg-white rounded-lg shadow-md p-4 mb-4">
-        <div className="flex items-center space-x-6 flex-wrap gap-2">
-          <div className="flex items-center">
-            <ArrowRight className="w-4 h-4 mr-2 text-indigo-600" />
-            <span className="text-sm font-semibold text-gray-700">Flow: Agents → Tasks → Agents</span>
-          </div>
-          <div className="w-px h-4 bg-gray-300"></div>
-          <div className="flex items-center">
-            <div className="w-4 h-4 bg-purple-500 rounded mr-2"></div>
-            <span className="text-sm text-gray-600">External/MCP Agent</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-4 h-4 bg-blue-500 rounded mr-2"></div>
-            <span className="text-sm text-gray-600">Internal Agent</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-4 h-4 bg-green-500 rounded mr-2"></div>
-            <span className="text-sm text-gray-600">Phase 1 Task</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-4 h-4 bg-blue-500 rounded mr-2"></div>
-            <span className="text-sm text-gray-600">Phase 2 Task</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-4 h-4 bg-yellow-500 rounded mr-2"></div>
-            <span className="text-sm text-gray-600">Phase 3 Task</span>
-          </div>
-          <div className="w-px h-4 bg-gray-300"></div>
-          <div className="flex items-center">
-            <div className="w-8 h-1 bg-purple-500 mr-2"></div>
-            <span className="text-sm text-gray-600">Creates</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-8 h-1 bg-green-500 mr-2"></div>
-            <span className="text-sm text-gray-600">Assigned</span>
-          </div>
-          <div className="w-px h-4 bg-gray-300"></div>
-          <div className="flex items-center">
-            <div className="w-8 h-1 bg-red-500 mr-2"></div>
-            <span className="text-sm text-gray-600">Hover to highlight chain</span>
-          </div>
-          <div className="w-px h-4 bg-gray-300"></div>
-          <div className="flex items-center">
-            <GitBranch className="w-4 h-4 mr-2 text-gray-500" />
-            <span className="text-sm text-gray-600 font-medium">
-              {nodes.length} nodes, {edges.length} edges
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Graph with Column Headers */}
-      <div className="bg-white rounded-lg shadow-md relative" style={{ height: '800px', width: '100%' }}>
-        <ColumnHeaders />
-
+      {/* Graph */}
+      <div className="bg-white rounded-lg shadow-md h-[700px] w-full relative">
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -753,53 +447,117 @@ const Graph: React.FC = () => {
           onNodeMouseEnter={onNodeMouseEnter}
           onNodeMouseLeave={onNodeMouseLeave}
           nodeTypes={nodeTypes}
-          connectionMode={ConnectionMode.Loose}
           fitView
-          fitViewOptions={{ padding: 0.1, maxZoom: 0.8 }}
-          style={{ width: '100%', height: '100%', paddingTop: '60px' }}
+          fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
+          minZoom={0.1}
+          maxZoom={2}
         >
-          <Background variant="dots" gap={20} size={1} />
+          <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
           <Controls />
           <MiniMap
             nodeColor={(node) => {
-              if (node.type === 'agent') {
-                return node.data.status === 'external' ? '#9333EA' : '#3B82F6';
-              }
-              // Color tasks by phase
-              const phaseOrder = node.data.phase_order;
-              if (phaseOrder === 1) return '#10B981';
-              if (phaseOrder === 2) return '#3B82F6';
-              if (phaseOrder === 3) return '#EAB308';
-              if (phaseOrder === 4) return '#EC4899';
-              return '#6366F1';
+              const status = node.data?.status;
+              if (status === 'done' || status === 'completed') return '#22c55e';
+              if (status === 'in_progress' || status === 'working') return '#3b82f6';
+              if (status === 'failed') return '#ef4444';
+              return '#9ca3af';
             }}
-            nodeStrokeWidth={3}
+            maskColor="rgba(0, 0, 0, 0.1)"
+            className="bg-white border rounded"
             pannable
             zoomable
           />
+
+          {/* Layout Control Panel */}
+          <Panel position="top-right" className="bg-white p-4 rounded-lg shadow-lg space-y-3">
+            <div className="font-semibold text-sm text-gray-900">Layout</div>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setLayoutDirection('TB')}
+                className={`px-3 py-1.5 text-xs rounded font-medium ${
+                  layoutDirection === 'TB'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Top-Down
+              </button>
+              <button
+                onClick={() => setLayoutDirection('LR')}
+                className={`px-3 py-1.5 text-xs rounded font-medium ${
+                  layoutDirection === 'LR'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Left-Right
+              </button>
+            </div>
+          </Panel>
+
+          {/* Legend Panel */}
+          <Panel position="bottom-right" className="bg-white p-4 rounded-lg shadow-lg">
+            <div className="font-semibold text-sm text-gray-900 mb-3">Legend</div>
+
+            {/* Status (borders) */}
+            <div className="space-y-2 text-xs mb-3">
+              <div className="text-gray-600 font-medium mb-1">Status (border)</div>
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 border-3 border-green-500 rounded" style={{ borderWidth: '3px' }}></div>
+                <span className="text-gray-700">Done ({stats.done})</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 border-3 border-blue-500 rounded" style={{ borderWidth: '3px' }}></div>
+                <span className="text-gray-700">In Progress ({stats.inProgress})</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 border-3 border-red-500 rounded" style={{ borderWidth: '3px' }}></div>
+                <span className="text-gray-700">Failed ({stats.failed})</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 border-3 border-gray-400 rounded" style={{ borderWidth: '3px' }}></div>
+                <span className="text-gray-700">Pending ({stats.pending})</span>
+              </div>
+            </div>
+
+            {/* Phase (backgrounds) */}
+            <div className="space-y-2 text-xs border-t pt-3">
+              <div className="text-gray-600 font-medium mb-1">Phase (background)</div>
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 bg-green-100 rounded border border-gray-300"></div>
+                <span className="text-gray-700">Phase 1</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 bg-blue-100 rounded border border-gray-300"></div>
+                <span className="text-gray-700">Phase 2</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 bg-yellow-100 rounded border border-gray-300"></div>
+                <span className="text-gray-700">Phase 3</span>
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="mt-3 pt-3 border-t text-xs text-gray-500">
+              <div className="flex items-center gap-1">
+                <GitBranch className="w-3 h-3" />
+                <span>{stats.total} tasks, {edges.length} connections</span>
+              </div>
+              <div className="mt-1">Click node for details</div>
+              <div>Drag to pan, scroll to zoom</div>
+            </div>
+          </Panel>
         </ReactFlow>
       </div>
-
-      {/* Node Preview Modal */}
-      {selectedNode && (
-        <NodePreview node={selectedNode} onClose={() => setSelectedNode(null)} />
-      )}
 
       {/* Task Detail Modal */}
       <TaskDetailModal
         taskId={selectedTaskId}
         onClose={() => setSelectedTaskId(null)}
         onNavigateToTask={(taskId) => setSelectedTaskId(taskId)}
-        onNavigateToGraph={(taskId) => {
+        onNavigateToGraph={(_taskId) => {
           setSelectedTaskId(null);
-          // Could implement highlighting the task in the graph here
         }}
-      />
-
-      {/* Real-time Agent Output Modal */}
-      <RealTimeAgentOutput
-        agent={selectedAgent}
-        onClose={() => setSelectedAgent(null)}
       />
     </div>
   );

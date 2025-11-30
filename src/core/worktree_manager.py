@@ -738,6 +738,7 @@ class WorktreeManager:
         session = self.db_manager.get_session()
         start_time = datetime.utcnow()
         lock_file = None
+        main_repo_stashed = False  # Track if we stashed changes in main repo
 
         try:
             # ========== STEP 1: ACQUIRE MERGE LOCK ==========
@@ -810,9 +811,25 @@ class WorktreeManager:
             conflicts_resolved = []
             merge_commit_sha = None
 
-            # ========== STEP 7: CHECKOUT TARGET BRANCH ==========
+            # ========== STEP 7: STASH & CHECKOUT TARGET BRANCH ==========
             logger.info(f"[GIT-MERGE:{agent_id}] STEP 7: Checking out '{target_branch}' in main repo")
             logger.info(f"[GIT-MERGE:{agent_id}]   Main repo current HEAD: {self.main_repo.head.commit.hexsha}")
+
+            # Check if main repo has uncommitted changes that would block the merge
+            if self.main_repo.is_dirty() or self.main_repo.untracked_files:
+                logger.warning(f"[GIT-MERGE:{agent_id}]   ⚠️  Main repo has uncommitted changes, stashing them")
+                modified_files = [item.a_path for item in self.main_repo.index.diff(None)]
+                untracked_files = self.main_repo.untracked_files
+                logger.info(f"[GIT-MERGE:{agent_id}]   Modified files: {modified_files}")
+                logger.info(f"[GIT-MERGE:{agent_id}]   Untracked files: {untracked_files}")
+
+                # Stash including untracked files
+                try:
+                    self.main_repo.git.stash("push", "-u", "-m", f"Auto-stash before merge for agent {agent_id}")
+                    main_repo_stashed = True
+                    logger.info(f"[GIT-MERGE:{agent_id}]   ✓ Changes stashed successfully")
+                except GitCommandError as e:
+                    logger.warning(f"[GIT-MERGE:{agent_id}]   Stash failed (may be nothing to stash): {e}")
 
             self.main_repo.heads[target_branch].checkout()
 
@@ -882,6 +899,16 @@ class WorktreeManager:
             # Calculate resolution time
             resolution_time_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
 
+            # ========== STEP 11: RESTORE STASHED CHANGES ==========
+            if main_repo_stashed:
+                logger.info(f"[GIT-MERGE:{agent_id}] STEP 11: Restoring stashed changes in main repo")
+                try:
+                    self.main_repo.git.stash("pop")
+                    logger.info(f"[GIT-MERGE:{agent_id}]   ✓ Stashed changes restored successfully")
+                except GitCommandError as e:
+                    # Stash pop might have conflicts - log but don't fail the merge
+                    logger.warning(f"[GIT-MERGE:{agent_id}]   ⚠️  Stash pop had issues (may need manual resolution): {e}")
+
             logger.info(f"[GIT-MERGE:{agent_id}] ========== MERGE COMPLETED SUCCESSFULLY ==========")
             logger.info(f"[GIT-MERGE:{agent_id}] Summary:")
             logger.info(f"[GIT-MERGE:{agent_id}]   - Status: {status}")
@@ -907,6 +934,16 @@ class WorktreeManager:
             )
             logger.error(f"[GIT-MERGE:{agent_id}] Error: {e}")
             session.rollback()
+
+            # Restore stashed changes even on failure
+            if main_repo_stashed:
+                logger.info(f"[GIT-MERGE:{agent_id}] Restoring stashed changes after merge failure")
+                try:
+                    self.main_repo.git.stash("pop")
+                    logger.info(f"[GIT-MERGE:{agent_id}]   ✓ Stashed changes restored")
+                except GitCommandError as stash_err:
+                    logger.warning(f"[GIT-MERGE:{agent_id}]   ⚠️  Could not restore stash: {stash_err}")
+
             raise
         finally:
             # ========== CLEANUP: RELEASE LOCK ==========
