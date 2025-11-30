@@ -1316,8 +1316,10 @@ async def create_task(
                 workflow_id = None
                 phase_context_str = ""
 
-                if server_state.phase_manager.workflow_id:
-                    logger.info(f"Workflow is active with ID: {server_state.phase_manager.workflow_id}")
+                # Check if we have a workflow context - either from request or from phase_manager singleton
+                target_workflow_id = request.workflow_id or server_state.phase_manager.workflow_id
+                if target_workflow_id:
+                    logger.info(f"Workflow context: request.workflow_id={request.workflow_id}, phase_manager.workflow_id={server_state.phase_manager.workflow_id}")
 
                     # Handle phase identification - request.phase_id might be a phase order number, not UUID
                     if request.phase_id and str(request.phase_id).isdigit():
@@ -1326,7 +1328,8 @@ async def create_task(
                         phase_id = server_state.phase_manager.get_phase_for_task(
                             phase_id=None,
                             order=int(request.phase_id),
-                            requesting_agent_id=agent_id
+                            requesting_agent_id=agent_id,
+                            workflow_id=request.workflow_id  # Pass explicit workflow_id for multi-workflow support
                         )
                         logger.info(f"get_phase_for_task returned phase_id: {phase_id} for order: {request.phase_id}")
                     elif request.phase_id:
@@ -1339,7 +1342,8 @@ async def create_task(
                         phase_id = server_state.phase_manager.get_phase_for_task(
                             phase_id=None,
                             order=request.phase_order,
-                            requesting_agent_id=agent_id
+                            requesting_agent_id=agent_id,
+                            workflow_id=request.workflow_id  # Pass explicit workflow_id for multi-workflow support
                         )
                         logger.info(f"get_phase_for_task returned: {phase_id}")
 
@@ -1403,8 +1407,8 @@ async def create_task(
                 if task:
                     task.enriched_description = enriched_task["enriched_description"]
                     task.phase_id = phase_id
-                    # Use workflow_id from phase context, falling back to request's workflow_id
-                    task.workflow_id = workflow_id or request.workflow_id
+                    # Prioritize request.workflow_id for multi-workflow support, fallback to phase context
+                    task.workflow_id = request.workflow_id or workflow_id
                     task.estimated_complexity = enriched_task.get("estimated_complexity", 5)
 
                     # Check if phase has validation enabled and inherit it

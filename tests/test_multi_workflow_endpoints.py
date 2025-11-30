@@ -492,11 +492,13 @@ class TestPhaseManagerIntegration:
 
     def test_start_execution(self, initialized_phase_manager):
         """Test starting a workflow execution from a definition."""
-        workflow_id = initialized_phase_manager.start_execution(
+        result = initialized_phase_manager.start_execution(
             definition_id="test-workflow",
             description="Test execution",
             working_directory="/project/path",
         )
+        # Handle tuple return (workflow_id, initial_task_info)
+        workflow_id = result[0] if isinstance(result, tuple) else result
 
         assert workflow_id is not None
         assert workflow_id in initialized_phase_manager.active_executions
@@ -532,9 +534,14 @@ class TestPhaseManagerIntegration:
         )
 
         # Start executions from both definitions
-        wf_a1 = initialized_phase_manager.start_execution("test-workflow", "Execution A1")
-        wf_a2 = initialized_phase_manager.start_execution("test-workflow", "Execution A2")
-        wf_b1 = initialized_phase_manager.start_execution("bugfix-workflow", "Execution B1")
+        result_a1 = initialized_phase_manager.start_execution("test-workflow", "Execution A1")
+        result_a2 = initialized_phase_manager.start_execution("test-workflow", "Execution A2")
+        result_b1 = initialized_phase_manager.start_execution("bugfix-workflow", "Execution B1")
+
+        # Handle tuple return (workflow_id, initial_task_info)
+        wf_a1 = result_a1[0] if isinstance(result_a1, tuple) else result_a1
+        wf_a2 = result_a2[0] if isinstance(result_a2, tuple) else result_a2
+        wf_b1 = result_b1[0] if isinstance(result_b1, tuple) else result_b1
 
         # Verify all are tracked
         assert len(initialized_phase_manager.active_executions) >= 3

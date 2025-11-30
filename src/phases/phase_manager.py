@@ -269,13 +269,15 @@ class PhaseManager:
             session.close()
 
     def get_phase_for_task(self, phase_id: Optional[str] = None, order: Optional[int] = None,
-                          requesting_agent_id: Optional[str] = None) -> Optional[str]:
+                          requesting_agent_id: Optional[str] = None,
+                          workflow_id: Optional[str] = None) -> Optional[str]:
         """Get phase ID for task creation.
 
         Args:
             phase_id: Explicit phase ID (for cross-phase task creation)
             order: Phase order number (for cross-phase task creation)
             requesting_agent_id: ID of the agent creating the task
+            workflow_id: Explicit workflow ID to use (for multi-workflow support)
 
         Returns:
             Phase ID or None if not found
@@ -284,12 +286,15 @@ class PhaseManager:
         if phase_id:
             return phase_id
 
+        # Use provided workflow_id, falling back to the singleton for backward compatibility
+        target_workflow_id = workflow_id or self.workflow_id
+
         # If phase order provided, find that phase (cross-phase task creation)
-        if order is not None and self.workflow_id:
+        if order is not None and target_workflow_id:
             session = self.db_manager.get_session()
             try:
                 phase = session.query(Phase).filter_by(
-                    workflow_id=self.workflow_id,
+                    workflow_id=target_workflow_id,
                     order=order
                 ).first()
                 return phase.id if phase else None
