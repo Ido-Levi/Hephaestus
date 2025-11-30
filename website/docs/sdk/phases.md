@@ -176,6 +176,55 @@ next_steps=[
 
 Gives agents context about the bigger picture. They're not working in isolation.
 
+### cli_tool, cli_model, glm_api_token_env (Optional CLI Configuration)
+
+Override the global CLI agent settings for this specific phase. Useful for using different models for different types of work.
+
+```python
+# Phase 1: Use powerful model for complex planning
+Phase(
+    id=1,
+    name="requirements_analysis",
+    cli_tool="claude",           # Which CLI to use (claude, opencode, droid, etc.)
+    cli_model="opus",             # Which model (opus, sonnet, haiku, GLM-4.6, etc.)
+    # ... other fields
+)
+
+# Phase 2: Use faster model for implementation
+Phase(
+    id=2,
+    name="implementation",
+    cli_tool="claude",
+    cli_model="GLM-4.6",          # Faster, cheaper model for straightforward work
+    glm_api_token_env="GLM_API_TOKEN",  # Required for GLM models
+    # ... other fields
+)
+
+# Phase 3: Use global defaults (no CLI config specified)
+Phase(
+    id=3,
+    name="validation",
+    # No cli_tool or cli_model → uses global config from hephaestus_config.yaml
+    # ... other fields
+)
+```
+
+**When to use this:**
+- Use expensive models (opus) for complex reasoning phases (planning, architecture)
+- Use faster models (GLM-4.6, sonnet) for straightforward work (implementation, testing)
+- Mix different CLI tools if needed (claude for some phases, opencode for others)
+
+**Fallback behavior:** If not specified, phases use the global defaults from `hephaestus_config.yaml`:
+```yaml
+agents:
+  default_cli_tool: claude
+  cli_model: sonnet
+```
+
+**Available CLI tools:** claude, opencode, droid, codex, swarm
+
+See the [SDK Examples](examples.md#configuring-cli-tools-and-models-per-phase) for complete code examples.
+
 ### validation (ValidationCriteria)
 Automated validation rules (optional, advanced feature).
 

@@ -577,7 +577,12 @@ class FrontendAPI:
                     "total_tasks": total_tasks,
                     "completed_tasks": completed_tasks,
                     "active_tasks": active_tasks,
-                    "pending_tasks": pending_tasks
+                    "pending_tasks": pending_tasks,
+                    "cli_config": {
+                        "cli_tool": phase.cli_tool,
+                        "cli_model": phase.cli_model,
+                        "glm_api_token_env": phase.glm_api_token_env
+                    }
                 })
 
             return {

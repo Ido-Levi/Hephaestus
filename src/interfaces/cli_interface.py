@@ -97,7 +97,14 @@ class ClaudeCodeAgent(CLIAgentInterface):
     """Implementation for Claude Code CLI."""
 
     def get_launch_command(self, system_prompt: str, **kwargs) -> str:
-        """Generate launch command for Claude Code."""
+        """Generate launch command for Claude Code.
+
+        Args:
+            system_prompt: System prompt to use
+            **kwargs: Additional parameters including:
+                - model: Optional model override (falls back to global config)
+                - task_id: Task ID for temp file naming
+        """
         import os
         from src.core.simple_config import get_config
 
@@ -114,8 +121,8 @@ class ClaudeCodeAgent(CLIAgentInterface):
         # Make sure the file is readable
         os.chmod(prompt_file, 0o644)
 
-        # Get configured model
-        model = getattr(config, 'cli_model', 'sonnet')
+        # Get configured model - use passed model or fall back to global config
+        model = kwargs.get('model') or getattr(config, 'cli_model', 'sonnet')
 
         # For GLM models, we use "sonnet" as the CLI flag but env vars are set on tmux session
         # For standard models, use the model name directly

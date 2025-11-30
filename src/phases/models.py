@@ -5,6 +5,34 @@ from pydantic import BaseModel, Field, field_validator
 import re
 
 
+def validate_cli_tool(cli_tool: Optional[str]) -> bool:
+    """Validate that cli_tool is a recognized CLI agent type.
+
+    Args:
+        cli_tool: The CLI tool name to validate (or None for default)
+
+    Returns:
+        True if valid
+
+    Raises:
+        ValueError: If cli_tool is not in the valid list
+    """
+    if cli_tool is None:
+        return True  # None is valid (uses default from global config)
+
+    # Import here to avoid circular dependency
+    from src.interfaces.cli_interface import CLI_AGENTS
+
+    valid_tools = list(CLI_AGENTS.keys())
+
+    if cli_tool not in valid_tools:
+        raise ValueError(
+            f"Invalid cli_tool '{cli_tool}'. Must be one of: {', '.join(valid_tools)}"
+        )
+
+    return True
+
+
 class PhaseDefinition(BaseModel):
     """Model for a single phase definition from YAML."""
 
@@ -36,6 +64,19 @@ class PhaseDefinition(BaseModel):
         None,
         description="Validation configuration for the phase"
     )
+    # Per-phase CLI configuration (optional - falls back to global defaults)
+    cli_tool: Optional[str] = Field(
+        None,
+        description="CLI tool to use for this phase (claude, opencode, droid, codex, swarm)"
+    )
+    cli_model: Optional[str] = Field(
+        None,
+        description="CLI model to use for this phase (sonnet, opus, haiku, GLM-4.6, etc.)"
+    )
+    glm_api_token_env: Optional[str] = Field(
+        None,
+        description="Environment variable name for GLM API token"
+    )
 
     @field_validator('filename')
     @classmethod
@@ -47,6 +88,13 @@ class PhaseDefinition(BaseModel):
                 f"Filename '{v}' must follow pattern: XX_phase_name.yaml "
                 "(where XX is a two-digit number)"
             )
+        return v
+
+    @field_validator('cli_tool')
+    @classmethod
+    def validate_cli_tool_field(cls, v: Optional[str]) -> Optional[str]:
+        """Validate that cli_tool is a recognized CLI agent type."""
+        validate_cli_tool(v)  # Will raise ValueError if invalid
         return v
 
     @classmethod
@@ -97,6 +145,11 @@ class PhaseDefinition(BaseModel):
         # Parse validation configuration
         validation = content.get('validation') or content.get('Validation')
 
+        # Parse CLI configuration
+        cli_tool = content.get('cli_tool') or content.get('Cli_Tool')
+        cli_model = content.get('cli_model') or content.get('Cli_Model')
+        glm_api_token_env = content.get('glm_api_token_env') or content.get('Glm_Api_Token_Env')
+
         return cls(
             filename=filename,
             order=order,
@@ -108,6 +161,9 @@ class PhaseDefinition(BaseModel):
             next_steps=next_steps,
             working_directory=working_directory,
             validation=validation,
+            cli_tool=cli_tool,
+            cli_model=cli_model,
+            glm_api_token_env=glm_api_token_env,
         )
 
 

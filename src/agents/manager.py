@@ -46,6 +46,9 @@ class AgentManager:
         agent_type: str = "phase",
         use_existing_worktree: bool = False,
         commit_sha: Optional[str] = None,
+        phase_cli_tool: Optional[str] = None,
+        phase_cli_model: Optional[str] = None,
+        phase_glm_token_env: Optional[str] = None,
     ) -> Agent:
         """Create an agent for a specific task.
 
@@ -59,12 +62,16 @@ class AgentManager:
             agent_type: Type of agent (phase, validator, result_validator, monitor)
             use_existing_worktree: If True, use working_directory as-is without creating new worktree
             commit_sha: Specific commit to create worktree from (for validators)
+            phase_cli_tool: Per-phase CLI tool override (falls back to cli_type or global default)
+            phase_cli_model: Per-phase CLI model override (falls back to global default)
+            phase_glm_token_env: Per-phase GLM token env variable override (falls back to global default)
 
         Returns:
             Created agent
         """
         agent_id = str(uuid.uuid4())
-        cli_type = cli_type or self.config.default_cli_tool
+        # Use phase config with fallback to global defaults
+        cli_type = phase_cli_tool or cli_type or self.config.default_cli_tool
 
         logger.info(f"Creating {cli_type} agent {agent_id} for task {task.id}")
 
@@ -130,10 +137,11 @@ class AgentManager:
 
             # 3. Prepare environment variables for GLM if needed
             env_vars = None
-            model = getattr(self.config, 'cli_model', 'sonnet')
+            # Use phase config with fallback to global defaults
+            model = phase_cli_model or getattr(self.config, 'cli_model', 'sonnet')
             if 'GLM' in model.upper():
                 import os
-                token_env_var = getattr(self.config, 'glm_api_token_env', 'GLM_API_TOKEN')
+                token_env_var = phase_glm_token_env or getattr(self.config, 'glm_api_token_env', 'GLM_API_TOKEN')
                 token = os.getenv(token_env_var)
 
                 if token:
@@ -203,6 +211,7 @@ class AgentManager:
             launch_command = cli_agent.get_launch_command(
                 system_prompt=system_prompt,
                 task_id=task.id,
+                model=model,  # Pass phase-specific or global model
             )
 
             # Send launch command to tmux

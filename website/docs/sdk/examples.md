@@ -607,6 +607,65 @@ my_workflow = WorkflowDefinition(
 )
 ```
 
+## Configuring CLI Tools and Models Per Phase
+
+Want Phase 1 to use your most powerful model for planning, but Phases 2-3 to use a faster, cheaper model for execution? You can configure different CLI tools and models for each phase:
+
+```python
+from src.sdk.models import Phase
+
+# Phase 1: Use Claude Opus for complex planning
+phase_1 = Phase(
+    id=1,
+    name="requirements_analysis",
+    description="Analyze PRD and break down components",
+    cli_tool="claude",      # Which CLI agent to use
+    cli_model="opus",       # Which model (opus, sonnet, haiku, GLM-4.6, etc.)
+    done_definitions=[
+        "All requirements extracted",
+        "Component breakdown complete with dependencies"
+    ]
+)
+
+# Phase 2: Use GLM-4.6 for faster implementation
+phase_2 = Phase(
+    id=2,
+    name="implementation",
+    description="Build components from Phase 1 specs",
+    cli_tool="claude",
+    cli_model="GLM-4.6",    # Faster, cheaper model for straightforward work
+    glm_api_token_env="GLM_API_TOKEN",  # Environment variable for GLM token
+    done_definitions=[
+        "Component implemented and tested"
+    ]
+)
+
+# Phase 3: Use global defaults (not specified)
+phase_3 = Phase(
+    id=3,
+    name="validation",
+    description="Test and document",
+    # No cli_tool or cli_model - uses global config from hephaestus_config.yaml
+    done_definitions=[
+        "Tests passing",
+        "Documentation complete"
+    ]
+)
+```
+
+**How it works:**
+- **Phase-specific config always wins**: If you set `cli_tool` or `cli_model` on a phase, that's what agents in that phase will use
+- **Global config is the fallback**: If not set, uses global defaults from `hephaestus_config.yaml`
+- **Mix and match**: Some phases can have custom config, others use defaults
+
+**Why you'd want this:**
+- **Save costs**: Use expensive models only where they matter (planning, complex reasoning)
+- **Improve speed**: Use faster models for straightforward implementation work
+- **Experiment**: Try different model combinations to find what works best
+- **Specialize**: Use different models for different types of work
+
+For more details, see [Per-Phase CLI Configuration](../features/per-phase-cli-config.md).
+
 ## Key Takeaways
 
 **The multi-workflow SDK pattern:**

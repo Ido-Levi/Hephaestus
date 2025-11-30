@@ -31,6 +31,11 @@ class Phase:
     next_steps: List[str] = field(default_factory=list)
     validation: Optional[ValidationCriteria] = None
 
+    # Per-phase CLI configuration (optional - falls back to global defaults)
+    cli_tool: Optional[str] = None           # "claude", "opencode", "droid", "codex", "swarm"
+    cli_model: Optional[str] = None          # "sonnet", "opus", "haiku", "GLM-4.6", etc.
+    glm_api_token_env: Optional[str] = None  # Environment variable name for GLM token
+
     def to_yaml_dict(self) -> Dict[str, Any]:
         """Convert Phase to YAML-compatible dictionary."""
         # Convert lists to multiline strings for outputs and next_steps
@@ -57,6 +62,16 @@ class Phase:
                 "enabled": True,
                 "criteria": self.validation.criteria,
             }
+
+        # Include CLI configuration if set
+        if self.cli_tool:
+            data["cli_tool"] = self.cli_tool
+
+        if self.cli_model:
+            data["cli_model"] = self.cli_model
+
+        if self.glm_api_token_env:
+            data["glm_api_token_env"] = self.glm_api_token_env
 
         return data
 

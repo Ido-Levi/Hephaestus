@@ -413,6 +413,13 @@ class HephaestusSDK:
                     phase_dict["outputs"] = phase.outputs
                 if phase.next_steps:
                     phase_dict["next_steps"] = phase.next_steps
+                # Include per-phase CLI configuration if present
+                if phase.cli_tool:
+                    phase_dict["cli_tool"] = phase.cli_tool
+                if phase.cli_model:
+                    phase_dict["cli_model"] = phase.cli_model
+                if phase.glm_api_token_env:
+                    phase_dict["glm_api_token_env"] = phase.glm_api_token_env
                 phases_config.append(phase_dict)
 
             # Convert WorkflowConfig to dict

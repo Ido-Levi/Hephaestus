@@ -279,6 +279,11 @@ class Phase(Base):
     # Validation configuration
     validation = Column(JSON)  # Stores validation criteria and settings
 
+    # Per-phase CLI configuration (optional - falls back to global defaults)
+    cli_tool = Column(String, nullable=True)           # "claude", "opencode", "droid", "codex", "swarm"
+    cli_model = Column(String, nullable=True)          # "sonnet", "opus", "haiku", "GLM-4.6", etc.
+    glm_api_token_env = Column(String, nullable=True)  # Environment variable name for GLM token
+
     # Relationships
     workflow = relationship("Workflow", back_populates="phases")
     tasks = relationship("Task", back_populates="phase")

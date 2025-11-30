@@ -23,6 +23,11 @@ interface Phase {
   completed_tasks: number;
   active_tasks: number;
   pending_tasks: number;
+  cli_config?: {
+    cli_tool?: string | null;
+    cli_model?: string | null;
+    glm_api_token_env?: string | null;
+  };
 }
 
 interface WorkflowInfo {
@@ -506,6 +511,24 @@ export default function Phases() {
                         </div>
                       </div>
                     </div>
+
+                    {/* CLI Configuration Display */}
+                    {(phase.cli_config?.cli_tool || phase.cli_config?.cli_model) && (
+                      <div className="pt-2 border-t space-y-1">
+                        <div className="text-xs font-medium text-muted-foreground">Agent Config:</div>
+                        {phase.cli_config.cli_tool && (
+                          <div className="text-xs">
+                            Tool: <code className="bg-muted px-1 py-0.5 rounded">{phase.cli_config.cli_tool}</code>
+                          </div>
+                        )}
+                        {phase.cli_config.cli_model && (
+                          <div className="text-xs">
+                            Model: <code className="bg-muted px-1 py-0.5 rounded">{phase.cli_config.cli_model}</code>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <Button
                       onClick={() => navigateToTasks(phase.id)}
                       variant="outline"

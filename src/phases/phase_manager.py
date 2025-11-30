@@ -794,6 +794,10 @@ class PhaseManager:
                     next_steps=serialize_for_text(phase_next_steps),
                     working_directory=phase_config.get("working_directory") or working_directory,
                     validation=serialize_for_text(phase_config.get("validation")),
+                    # Per-phase CLI configuration (optional - falls back to global defaults)
+                    cli_tool=phase_config.get("cli_tool"),
+                    cli_model=phase_config.get("cli_model"),
+                    glm_api_token_env=phase_config.get("glm_api_token_env"),
                 )
                 session.add(phase)
 

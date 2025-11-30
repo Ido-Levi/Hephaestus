@@ -1088,6 +1088,28 @@ async def process_queue():
         logger.info(f"[QUEUE_AGENT_CREATE]   - memories count: {len(context_memories)}")
         logger.info(f"[QUEUE_AGENT_CREATE]   - working_directory: {working_directory}")
 
+        # Fetch phase CLI configuration if phase_id is set
+        phase_cli_tool = None
+        phase_cli_model = None
+        phase_glm_token_env = None
+        logger.info(f"[QUEUE_AGENT_CREATE] Task phase_id: {task_for_agent.phase_id}")
+        if task_for_agent.phase_id:
+            phase_session = server_state.db_manager.get_session()
+            try:
+                from src.core.database import Phase
+                phase = phase_session.query(Phase).filter(Phase.id == task_for_agent.phase_id).first()
+                logger.info(f"[QUEUE_AGENT_CREATE] Found phase in DB: {phase is not None}")
+                if phase:
+                    phase_cli_tool = phase.cli_tool
+                    phase_cli_model = phase.cli_model
+                    phase_glm_token_env = phase.glm_api_token_env
+                else:
+                    logger.warning(f"[QUEUE_AGENT_CREATE] Phase not found in database for phase_id: {task_for_agent.phase_id}")
+            finally:
+                phase_session.close()
+        else:
+            logger.info(f"[QUEUE_AGENT_CREATE] No phase_id set on task, using global CLI config")
+
         # Create agent for the task (using refreshed task data and full enriched_data)
         agent = await server_state.agent_manager.create_agent_for_task(
             task=task_for_agent,
@@ -1095,6 +1117,9 @@ async def process_queue():
             memories=context_memories,
             project_context=project_context,
             working_directory=working_directory,
+            phase_cli_tool=phase_cli_tool,
+            phase_cli_model=phase_cli_model,
+            phase_glm_token_env=phase_glm_token_env,
         )
 
         logger.info(f"[QUEUE_AGENT_CREATE] ✓✓✓ AGENT CREATED SUCCESSFULLY: {agent.id} for task {next_task.id} ✓✓✓")
@@ -1274,6 +1299,9 @@ async def create_task(
 
         # Process the rest asynchronously
         async def process_task_async():
+            # Import Phase at the top to avoid scope issues
+            from src.core.database import Phase
+
             try:
                 # 1. Determine phase if workflow is active
                 logger.info(f"=== TASK CREATION PHASE DEBUG for task {task_id} ===")
@@ -1495,12 +1523,30 @@ async def create_task(
 
                     logger.info(f"[CREATE_TASK] temp_task.created_by_agent_id = {temp_task.created_by_agent_id}")
 
+                    # Fetch phase CLI configuration
+                    phase_cli_tool = None
+                    phase_cli_model = None
+                    phase_glm_token_env = None
+                    if temp_task.phase_id:
+                        session = server_state.db_manager.get_session()
+                        try:
+                            phase = session.query(Phase).filter_by(id=temp_task.phase_id).first()
+                            if phase:
+                                phase_cli_tool = phase.cli_tool
+                                phase_cli_model = phase.cli_model
+                                phase_glm_token_env = phase.glm_api_token_env
+                        finally:
+                            session.close()
+
                     agent = await server_state.agent_manager.create_agent_for_task(
                         task=temp_task,
                         enriched_data=enriched_task,
                         memories=context_memories,
                         project_context=project_context,
                         working_directory=working_directory,
+                        phase_cli_tool=phase_cli_tool,
+                        phase_cli_model=phase_cli_model,
+                        phase_glm_token_env=phase_glm_token_env,
                     )
 
                     # Store agent ID immediately (before session issues)
@@ -3517,13 +3563,21 @@ async def bump_task_priority_endpoint(
                 requesting_agent_id="system",
             )
 
-            # Determine working directory
+            # Determine working directory and fetch phase CLI config
             working_directory = None
+            phase_cli_tool = None
+            phase_cli_model = None
+            phase_glm_token_env = None
             if task.phase_id:
                 from src.core.database import Phase
                 phase = session.query(Phase).filter_by(id=task.phase_id).first()
-                if phase and phase.working_directory:
-                    working_directory = phase.working_directory
+                if phase:
+                    if phase.working_directory:
+                        working_directory = phase.working_directory
+                    # Fetch phase CLI configuration
+                    phase_cli_tool = phase.cli_tool
+                    phase_cli_model = phase.cli_model
+                    phase_glm_token_env = phase.glm_api_token_env
             if not working_directory:
                 working_directory = os.getcwd()
 
@@ -3537,6 +3591,9 @@ async def bump_task_priority_endpoint(
             memories=context_memories,
             project_context=project_context,
             working_directory=working_directory,
+            phase_cli_tool=phase_cli_tool,
+            phase_cli_model=phase_cli_model,
+            phase_glm_token_env=phase_glm_token_env,
         )
 
         # Update task status
@@ -4394,7 +4451,12 @@ async def get_workflow_execution(workflow_id: str):
                 "total_tasks": total_tasks,
                 "completed_tasks": completed_tasks,
                 "active_tasks": active_tasks,
-                "pending_tasks": pending_tasks
+                "pending_tasks": pending_tasks,
+                "cli_config": {
+                    "cli_tool": phase.cli_tool,
+                    "cli_model": phase.cli_model,
+                    "glm_api_token_env": phase.glm_api_token_env
+                }
             })
     finally:
         session.close()
