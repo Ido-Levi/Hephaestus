@@ -15,6 +15,7 @@ import Graph from '@/pages/Graph';
 import Observability from '@/pages/Observability';
 import Results from '@/pages/Results';
 import Tickets from '@/pages/Tickets';
+import Diffs from '@/pages/Diffs';
 import WorkflowExecutions from '@/pages/WorkflowExecutions';
 
 const queryClient = new QueryClient({
@@ -45,6 +46,7 @@ function App() {
                 <Route path="observability" element={<Observability />} />
                 <Route path="results" element={<Results />} />
                 <Route path="tickets" element={<Tickets />} />
+                <Route path="diffs" element={<Diffs />} />
               </Route>
             </Routes>
           </BrowserRouter>

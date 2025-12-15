@@ -433,6 +433,46 @@ class MergeConflictResolution(Base):
     commit = relationship("WorktreeCommit", backref="resolutions")
 
 
+class PendingDiffResolution(Base):
+    """Store pending diffs waiting for AI agent resolution.
+    
+    Instead of automatic newest-file-wins, diffs are queued here
+    and resolved by a dedicated agent in batches.
+    """
+
+    __tablename__ = "pending_diff_resolutions"
+
+    id = Column(String, primary_key=True)
+    merge_agent_id = Column(String, ForeignKey("agents.id"), nullable=False)
+    worktree_agent_id = Column(String, nullable=False)  # Agent whose work created the conflict
+    file_path = Column(Text, nullable=False)
+    parent_content = Column(Text, nullable=False)  # Content from main/parent branch
+    child_content = Column(Text, nullable=False)  # Content from agent's worktree
+    parent_timestamp = Column(DateTime)
+    child_timestamp = Column(DateTime)
+    diff_context = Column(Text)  # Unified diff for context
+    status = Column(
+        String,
+        CheckConstraint("status IN ('pending', 'processing', 'resolved', 'failed')"),
+        default="pending",
+        nullable=False,
+    )
+    batch_id = Column(String)  # Groups diffs processed together
+    resolution_choice = Column(
+        String,
+        CheckConstraint("resolution_choice IN ('parent', 'child', 'merged', 'manual')"),
+    )
+    resolved_content = Column(Text)  # Final resolved content
+    resolver_agent_id = Column(String, ForeignKey("agents.id"))
+    resolution_reasoning = Column(Text)  # AI's explanation for the choice
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    resolved_at = Column(DateTime)
+
+    # Relationships
+    merge_agent = relationship("Agent", foreign_keys=[merge_agent_id], backref="pending_diffs_created")
+    resolver_agent = relationship("Agent", foreign_keys=[resolver_agent_id], backref="diffs_resolved")
+
+
 class AgentResult(Base):
     """Store formal results reported by agents for their completed tasks."""
 

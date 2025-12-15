@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { Home, FileText, Bot, Database, GitBranch, Activity, Layers, Monitor, Compass, ListChecks, Menu, ChevronLeft, Ticket, Workflow } from 'lucide-react';
+import { Home, FileText, Bot, Database, GitBranch, Activity, Layers, Monitor, Compass, ListChecks, Menu, ChevronLeft, Ticket, Workflow, GitMerge } from 'lucide-react';
 import { useWebSocket } from '@/context/WebSocketContext';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -35,6 +35,7 @@ const Layout: React.FC = () => {
       { to: '/overview', icon: Compass, label: 'Overview' },
       { to: '/tasks', icon: FileText, label: 'Tasks' },
       { to: '/tickets', icon: Ticket, label: 'Tickets' },
+      { to: '/diffs', icon: GitMerge, label: 'Diffs' },
       { to: '/results', icon: ListChecks, label: 'Results' },
       { to: '/agents', icon: Bot, label: 'Agents' },
       { to: '/phases', icon: Layers, label: 'Phases' },
