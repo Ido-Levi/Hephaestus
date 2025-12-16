@@ -8,6 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.memory.vector_store import VectorStoreManager
+from src.core.simple_config import get_config
 
 
 def main():
@@ -17,10 +18,14 @@ def main():
     print()
 
     try:
+        # Load config to get embedding dimension
+        config = get_config()
+        
         # Initialize vector store manager
         vector_store = VectorStoreManager(
-            qdrant_url="http://localhost:6333",
-            collection_prefix="hephaestus"
+            qdrant_url=config.qdrant_url,
+            collection_prefix=config.qdrant_collection_prefix,
+            embedding_dimension=config.embedding_dimension
         )
 
         print("Collections initialized successfully!")

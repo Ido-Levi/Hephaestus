@@ -24,44 +24,46 @@ class VectorStoreManager:
     # Collection definitions with their vector dimensions
     COLLECTIONS = {
         "agent_memories": {
-            "size": 3072,  # OpenAI text-embedding-3-large dimension
+            "size": None,  # Will be set to embedding_dimension
             "description": "Real-time agent discoveries and learnings",
         },
         "static_docs": {
-            "size": 3072,
+            "size": None,
             "description": "Documentation files and static knowledge",
         },
         "task_completions": {
-            "size": 3072,
+            "size": None,
             "description": "Historical task data and outcomes",
         },
         "error_solutions": {
-            "size": 3072,
+            "size": None,
             "description": "Known error patterns and fixes",
         },
         "domain_knowledge": {
-            "size": 3072,
+            "size": None,
             "description": "CVEs, CWEs, standards, and domain-specific knowledge",
         },
         "project_context": {
-            "size": 3072,
+            "size": None,
             "description": "Current project state and goals",
         },
         "ticket_embeddings": {
-            "size": 3072,
+            "size": None,
             "description": "Ticket tracking system embeddings for semantic search",
         },
     }
 
-    def __init__(self, qdrant_url: str = "http://localhost:6333", collection_prefix: str = "hephaestus"):
+    def __init__(self, qdrant_url: str = "http://localhost:6333", collection_prefix: str = "hephaestus", embedding_dimension: int = 768):
         """Initialize Qdrant client and collections.
 
         Args:
             qdrant_url: URL of the Qdrant server
             collection_prefix: Prefix for collection names
+            embedding_dimension: Dimension of embedding vectors
         """
         self.client = QdrantClient(url=qdrant_url)
         self.collection_prefix = collection_prefix
+        self.embedding_dimension = embedding_dimension
         self._initialize_collections()
 
     def _get_collection_name(self, collection: str) -> str:
@@ -71,6 +73,8 @@ class VectorStoreManager:
     def _initialize_collections(self):
         """Initialize all required collections in Qdrant."""
         for collection_name, config in self.COLLECTIONS.items():
+            # Set the size to the embedding dimension
+            config["size"] = self.embedding_dimension
             full_name = self._get_collection_name(collection_name)
             try:
                 # Check if collection exists by listing all collections

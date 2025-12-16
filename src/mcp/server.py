@@ -552,6 +552,81 @@ class SendMessageResponse(BaseModel):
     message: str = Field(..., description="Status message")
 
 
+# ========== DIFF RESOLUTION MODELS ==========
+
+class PendingDiffInfo(BaseModel):
+    """Information about a pending diff."""
+
+    id: str
+    file_path: str
+    status: str
+    batch_id: Optional[str] = None
+    merge_agent_id: str
+    worktree_agent_id: str
+    resolution_choice: Optional[str] = None
+    resolution_reasoning: Optional[str] = None
+    created_at: Optional[str] = None
+    resolved_at: Optional[str] = None
+
+
+class GetPendingDiffsResponse(BaseModel):
+    """Response model for getting pending diffs."""
+
+    success: bool
+    diffs: List[PendingDiffInfo]
+    total_pending: int
+    total_processing: int
+    total_resolved: int
+
+
+class ResolveDiffBatchRequest(BaseModel):
+    """Request model for resolving a batch of diffs."""
+
+    resolver_agent_id: str = Field(..., description="ID of the agent resolving diffs")
+    batch_size: Optional[int] = Field(default=None, description="Number of diffs to resolve (defaults to config)")
+
+
+class DiffResolutionResult(BaseModel):
+    """Result of a single diff resolution."""
+
+    diff_id: str
+    file_path: str
+    status: str
+    resolution_choice: Optional[str] = None
+    reasoning: Optional[str] = None
+    error: Optional[str] = None
+
+
+class ResolveDiffBatchResponse(BaseModel):
+    """Response model for batch diff resolution."""
+
+    success: bool
+    batch_id: Optional[str] = None
+    resolved_count: int
+    failed_count: int
+    results: List[DiffResolutionResult]
+    message: str
+
+
+class ApplyResolvedDiffsRequest(BaseModel):
+    """Request model for applying resolved diffs."""
+
+    agent_id: str = Field(..., description="ID of the agent applying diffs")
+    diff_ids: List[str] = Field(..., description="List of resolved diff IDs to apply")
+
+
+class ApplyResolvedDiffsResponse(BaseModel):
+    """Response model for applying resolved diffs."""
+
+    success: bool
+    applied_count: int
+    failed_count: int
+    commit_sha: Optional[str] = None
+    applied: List[Dict[str, Any]]
+    failed: List[Dict[str, Any]]
+    message: str
+
+
 # Server state
 class ServerState:
     """Global server state."""
@@ -3022,6 +3097,171 @@ async def resolve_ticket_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Failed to resolve ticket: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========== DIFF RESOLUTION ENDPOINTS ==========
+
+
+@app.get("/api/diffs/pending", response_model=GetPendingDiffsResponse)
+async def get_pending_diffs_endpoint(
+    status_filter: Optional[str] = None,
+    limit: int = 100,
+):
+    """Get pending diff resolutions.
+
+    Args:
+        status_filter: Optional filter by status (pending, processing, resolved, failed)
+        limit: Maximum number of results
+    """
+    logger.info(f"[DIFF-API] Fetching diffs with status_filter={status_filter}, limit={limit}")
+
+    try:
+        from src.services.diff_resolution_service import get_diff_resolution_service
+
+        diff_service = get_diff_resolution_service(server_state.db_manager)
+        diffs = diff_service.get_all_diffs(status_filter=status_filter, limit=limit)
+
+        # Count by status
+        all_diffs = diff_service.get_all_diffs(limit=1000)
+        pending_count = sum(1 for d in all_diffs if d["status"] == "pending")
+        processing_count = sum(1 for d in all_diffs if d["status"] == "processing")
+        resolved_count = sum(1 for d in all_diffs if d["status"] == "resolved")
+
+        return GetPendingDiffsResponse(
+            success=True,
+            diffs=[PendingDiffInfo(**d) for d in diffs],
+            total_pending=pending_count,
+            total_processing=processing_count,
+            total_resolved=resolved_count,
+        )
+
+    except Exception as e:
+        logger.error(f"[DIFF-API] Failed to get pending diffs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/diffs/resolve-batch", response_model=ResolveDiffBatchResponse)
+async def resolve_diff_batch_endpoint(
+    request: ResolveDiffBatchRequest,
+):
+    """Resolve a batch of pending diffs using AI.
+
+    This endpoint processes diffs in batches (default: 3) and uses an AI agent
+    to intelligently resolve conflicts instead of the automatic newest-file-wins
+    strategy.
+
+    Args:
+        request: Resolution request with agent ID and optional batch size
+    """
+    logger.info(f"[DIFF-API] Resolving diff batch for agent {request.resolver_agent_id}")
+
+    try:
+        from src.services.diff_resolution_service import get_diff_resolution_service
+
+        diff_service = get_diff_resolution_service(server_state.db_manager)
+        results = await diff_service.resolve_diff_batch(
+            resolver_agent_id=request.resolver_agent_id,
+            batch_size=request.batch_size,
+        )
+
+        resolved_count = sum(1 for r in results if r["status"] == "resolved")
+        failed_count = sum(1 for r in results if r["status"] == "failed")
+
+        # Get batch_id from results if any
+        batch_id = results[0].get("batch_id") if results else None
+
+        # Broadcast update
+        await server_state.broadcast_update({
+            "type": "diffs_resolved",
+            "resolver_agent_id": request.resolver_agent_id,
+            "resolved_count": resolved_count,
+            "failed_count": failed_count,
+        })
+
+        return ResolveDiffBatchResponse(
+            success=failed_count == 0,
+            batch_id=batch_id,
+            resolved_count=resolved_count,
+            failed_count=failed_count,
+            results=[DiffResolutionResult(**r) for r in results],
+            message=f"Resolved {resolved_count} diffs, {failed_count} failed",
+        )
+
+    except Exception as e:
+        logger.error(f"[DIFF-API] Failed to resolve diff batch: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/diffs/apply", response_model=ApplyResolvedDiffsResponse)
+async def apply_resolved_diffs_endpoint(
+    request: ApplyResolvedDiffsRequest,
+):
+    """Apply resolved diffs to the repository.
+
+    After the AI agent resolves diffs, this endpoint applies the resolved
+    content to the repository and commits the changes.
+
+    Args:
+        request: Request with agent ID and list of diff IDs to apply
+    """
+    logger.info(f"[DIFF-API] Applying {len(request.diff_ids)} resolved diffs for agent {request.agent_id}")
+
+    try:
+        result = await server_state.worktree_manager.apply_resolved_diffs(
+            agent_id=request.agent_id,
+            diff_ids=request.diff_ids,
+        )
+
+        # Broadcast update
+        await server_state.broadcast_update({
+            "type": "diffs_applied",
+            "agent_id": request.agent_id,
+            "applied_count": len(result["applied"]),
+            "commit_sha": result.get("commit_sha"),
+        })
+
+        return ApplyResolvedDiffsResponse(
+            success=result["status"] == "success",
+            applied_count=len(result["applied"]),
+            failed_count=len(result["failed"]),
+            commit_sha=result.get("commit_sha"),
+            applied=result["applied"],
+            failed=result["failed"],
+            message=f"Applied {len(result['applied'])} diffs" + (f", {len(result['failed'])} failed" if result["failed"] else ""),
+        )
+
+    except Exception as e:
+        logger.error(f"[DIFF-API] Failed to apply resolved diffs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/diffs/{diff_id}")
+async def get_diff_status_endpoint(
+    diff_id: str,
+):
+    """Get the status of a specific diff resolution.
+
+    Args:
+        diff_id: ID of the diff to check
+    """
+    logger.info(f"[DIFF-API] Getting status for diff {diff_id}")
+
+    try:
+        from src.services.diff_resolution_service import get_diff_resolution_service
+
+        diff_service = get_diff_resolution_service(server_state.db_manager)
+        status = diff_service.get_diff_status(diff_id)
+
+        if not status:
+            raise HTTPException(status_code=404, detail=f"Diff not found: {diff_id}")
+
+        return status
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[DIFF-API] Failed to get diff status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

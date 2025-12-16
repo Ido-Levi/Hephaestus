@@ -193,7 +193,7 @@ def run_quick_test():
         config = Config()
 
         # Initialize components (but don't make API calls)
-        vector_store = VectorStoreManager()
+        vector_store = VectorStoreManager(embedding_dimension=config.embedding_dimension)
         print("   ✅ Vector store initialized")
 
         llm_provider = OpenAIProvider(

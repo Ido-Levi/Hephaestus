@@ -538,4 +538,82 @@ export const apiService = {
     const { data } = await api.post('/sync-blocking-status');
     return data;
   },
+
+  // Diff Resolution
+  getPendingDiffs: async (statusFilter?: string, limit?: number): Promise<{
+    success: boolean;
+    diffs: Array<{
+      id: string;
+      file_path: string;
+      status: string;
+      batch_id?: string;
+      merge_agent_id: string;
+      worktree_agent_id: string;
+      resolution_choice?: string;
+      resolution_reasoning?: string;
+      created_at?: string;
+      resolved_at?: string;
+    }>;
+    total_pending: number;
+    total_processing: number;
+    total_resolved: number;
+  }> => {
+    const params = new URLSearchParams();
+    if (statusFilter) params.append('status_filter', statusFilter);
+    if (limit) params.append('limit', limit.toString());
+    const { data } = await api.get(`/diffs/pending?${params}`);
+    return data;
+  },
+
+  resolveDiffBatch: async (resolverAgentId: string, batchSize?: number): Promise<{
+    success: boolean;
+    batch_id?: string;
+    resolved_count: number;
+    failed_count: number;
+    results: Array<{
+      diff_id: string;
+      file_path: string;
+      status: string;
+      resolution_choice?: string;
+      reasoning?: string;
+      error?: string;
+    }>;
+    message: string;
+  }> => {
+    const { data } = await api.post('/diffs/resolve-batch', {
+      resolver_agent_id: resolverAgentId,
+      batch_size: batchSize,
+    });
+    return data;
+  },
+
+  applyResolvedDiffs: async (agentId: string, diffIds: string[]): Promise<{
+    success: boolean;
+    applied_count: number;
+    failed_count: number;
+    commit_sha?: string;
+    applied: Array<{ diff_id: string; file_path: string; resolution_choice: string }>;
+    failed: Array<{ diff_id: string; error: string }>;
+    message: string;
+  }> => {
+    const { data } = await api.post('/diffs/apply', {
+      agent_id: agentId,
+      diff_ids: diffIds,
+    });
+    return data;
+  },
+
+  getDiffStatus: async (diffId: string): Promise<{
+    id: string;
+    file_path: string;
+    status: string;
+    batch_id?: string;
+    resolution_choice?: string;
+    resolution_reasoning?: string;
+    created_at?: string;
+    resolved_at?: string;
+  }> => {
+    const { data } = await api.get(`/diffs/${diffId}`);
+    return data;
+  },
 };

@@ -8,16 +8,21 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from src.memory.vector_store import VectorStoreManager
+from src.core.simple_config import get_config
 
 
 def main():
     print("Connecting to Qdrant at http://localhost:6333...")
     print()
 
+    # Load config to get embedding dimension
+    config = get_config()
+    
     # Initialize the vector store manager
     vector_store = VectorStoreManager(
-        qdrant_url="http://localhost:6333",
-        collection_prefix="hephaestus"
+        qdrant_url=config.qdrant_url,
+        collection_prefix=config.qdrant_collection_prefix,
+        embedding_dimension=config.embedding_dimension
     )
 
     # Get statistics for all collections

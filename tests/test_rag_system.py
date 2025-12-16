@@ -19,7 +19,7 @@ async def test_rag_retrieval():
 
     # Initialize components
     config = Config()
-    vector_store = VectorStoreManager()
+    vector_store = VectorStoreManager(embedding_dimension=768)
     llm_provider = OpenAIProvider(
         api_key=config.openai_api_key,
         model=config.llm_model,
@@ -171,7 +171,7 @@ async def test_memory_ingestion():
 
     # Initialize components
     config = Config()
-    vector_store = VectorStoreManager()
+    vector_store = VectorStoreManager(embedding_dimension=config.embedding_dimension)
     llm_provider = OpenAIProvider(
         api_key=config.openai_api_key,
         model=config.llm_model,

@@ -579,30 +579,36 @@ class WorktreeManager:
                 logger.warning(f"[MAIN-MERGE:{agent_id}] Merge resulted in error: {str(e)[:200]}")
 
                 if "CONFLICT" in str(e):
-                    # Conflicts detected - resolve automatically
-                    logger.info(f"[MAIN-MERGE:{agent_id}] Conflicts detected - resolving using newest_file_wins")
+                    # Conflicts detected - resolve using configured strategy
+                    logger.info(f"[MAIN-MERGE:{agent_id}] Conflicts detected - resolving using {self.config.conflict_resolution_strategy}")
 
-                    # Use existing conflict resolution logic
-                    conflicts_resolved = self._resolve_conflicts_newest_wins(
+                    # Use the main conflict resolution dispatcher
+                    conflicts_resolved = self._resolve_conflicts(
                         worktree_repo,  # Target repo (where we're merging into)
                         self.main_repo,  # Source repo (main branch)
                         agent_id,
                         session
                     )
 
-                    logger.info(f"[MAIN-MERGE:{agent_id}] ✓ Resolved {len(conflicts_resolved)} conflicts")
+                    # Check if conflicts were queued for agent resolution
+                    if conflicts_resolved and conflicts_resolved[0].get("status") == "queued":
+                        logger.info(f"[MAIN-MERGE:{agent_id}] ⏳ {len(conflicts_resolved)} conflicts queued for AI resolution")
+                        status = "pending_resolution"
+                        merge_commit_sha = None
+                    else:
+                        logger.info(f"[MAIN-MERGE:{agent_id}] ✓ Resolved {len(conflicts_resolved)} conflicts")
 
-                    # Commit the resolution
-                    logger.info(f"[MAIN-MERGE:{agent_id}] Committing conflict resolution")
-                    # Use --no-verify to skip hooks for automated conflict resolution
-                    worktree_repo.git.commit(
-                        "-m", f"[Auto-Merge] Resolved conflicts merging main into {branch_name}",
-                        "--no-verify"
-                    )
-                    merge_commit_sha = worktree_repo.head.commit.hexsha
-                    status = "conflict_resolved"
+                        # Commit the resolution
+                        logger.info(f"[MAIN-MERGE:{agent_id}] Committing conflict resolution")
+                        # Use --no-verify to skip hooks for automated conflict resolution
+                        worktree_repo.git.commit(
+                            "-m", f"[Auto-Merge] Resolved conflicts merging main into {branch_name}",
+                            "--no-verify"
+                        )
+                        merge_commit_sha = worktree_repo.head.commit.hexsha
+                        status = "conflict_resolved"
 
-                    logger.info(f"[MAIN-MERGE:{agent_id}] ✓ Resolution committed: {merge_commit_sha}")
+                        logger.info(f"[MAIN-MERGE:{agent_id}] ✓ Resolution committed: {merge_commit_sha}")
                 else:
                     # Non-conflict error
                     logger.error(f"[MAIN-MERGE:{agent_id}] Merge failed with non-conflict error")
@@ -860,38 +866,47 @@ class WorktreeManager:
 
                 if "CONFLICT" in str(e):
                     # ========== STEP 9: RESOLVE CONFLICTS ==========
-                    logger.info(f"[GIT-MERGE:{agent_id}] STEP 9: Conflicts detected - resolving automatically")
+                    logger.info(f"[GIT-MERGE:{agent_id}] STEP 9: Conflicts detected - resolving using configured strategy")
                     logger.info(f"[GIT-MERGE:{agent_id}]   Strategy: {self.config.conflict_resolution_strategy}")
 
-                    conflicts_resolved = self._resolve_conflicts_newest_wins(
+                    conflicts_resolved = self._resolve_conflicts(
                         target_repo,
                         worktree_repo,
                         agent_id,
                         session
                     )
 
-                    logger.info(f"[GIT-MERGE:{agent_id}]   ✓ Resolved {len(conflicts_resolved)} conflicts")
+                    # Check if conflicts were queued for agent resolution
+                    if conflicts_resolved and conflicts_resolved[0].get("status") == "queued":
+                        logger.info(f"[GIT-MERGE:{agent_id}]   ⏳ {len(conflicts_resolved)} conflicts queued for AI resolution")
+                        # Merge was aborted, return pending status
+                        status = "pending_resolution"
+                        merge_commit_sha = None
+                        worktree.merge_status = "pending_resolution"
+                    else:
+                        logger.info(f"[GIT-MERGE:{agent_id}]   ✓ Resolved {len(conflicts_resolved)} conflicts")
 
-                    # Commit resolution
-                    logger.info(f"[GIT-MERGE:{agent_id}]   Committing conflict resolution")
-                    # Use --no-verify to skip hooks for automated conflict resolution
-                    target_repo.git.commit(
-                        "-m", f"[Auto-Merge] Resolved conflicts using {self.config.conflict_resolution_strategy}",
-                        "--no-verify"
-                    )
-                    merge_commit_sha = target_repo.head.commit.hexsha
-                    status = "conflict_resolved"
+                        # Commit resolution
+                        logger.info(f"[GIT-MERGE:{agent_id}]   Committing conflict resolution")
+                        # Use --no-verify to skip hooks for automated conflict resolution
+                        target_repo.git.commit(
+                            "-m", f"[Auto-Merge] Resolved conflicts using {self.config.conflict_resolution_strategy}",
+                            "--no-verify"
+                        )
+                        merge_commit_sha = target_repo.head.commit.hexsha
+                        status = "conflict_resolved"
 
-                    logger.info(f"[GIT-MERGE:{agent_id}]   ✓ Resolution committed: {merge_commit_sha}")
+                        logger.info(f"[GIT-MERGE:{agent_id}]   ✓ Resolution committed: {merge_commit_sha}")
                 else:
                     logger.error(f"[GIT-MERGE:{agent_id}]   ✗ Merge failed with non-conflict error")
                     raise
 
             # ========== STEP 10: UPDATE DATABASE ==========
             logger.info(f"[GIT-MERGE:{agent_id}] STEP 10: Updating database with merge results")
-            worktree.merge_status = "merged"
-            worktree.merged_at = datetime.utcnow()
-            worktree.merge_commit_sha = merge_commit_sha
+            if status != "pending_resolution":
+                worktree.merge_status = "merged"
+                worktree.merged_at = datetime.utcnow()
+                worktree.merge_commit_sha = merge_commit_sha
 
             session.commit()
             logger.info(f"[GIT-MERGE:{agent_id}]   ✓ Database updated")
@@ -1223,6 +1238,200 @@ class WorktreeManager:
             current_sha = parent_repo.head.commit.hexsha
             logger.info(f"[WORKTREE] No uncommitted changes in parent, using current HEAD: {current_sha}")
             return current_sha
+
+    def _resolve_conflicts(
+        self,
+        main_repo: Repo,
+        worktree_repo: Repo,
+        agent_id: str,
+        session: Session,
+    ) -> List[Dict[str, Any]]:
+        """Resolve conflicts using the configured strategy.
+
+        Dispatches to either:
+        - _resolve_conflicts_newest_wins: Automatic timestamp-based resolution
+        - _queue_conflicts_for_agent_resolution: Queue for AI agent resolution
+
+        Args:
+            main_repo: Main repository with conflicts
+            worktree_repo: Agent's worktree repository
+            agent_id: Agent identifier
+            session: Database session
+
+        Returns:
+            List of conflict resolutions (may be empty if queued for agent)
+        """
+        strategy = self.config.conflict_resolution_strategy
+        logger.info(f"[GIT-MERGE:{agent_id}] Using conflict resolution strategy: {strategy}")
+
+        if strategy == "agent_resolution":
+            return self._queue_conflicts_for_agent_resolution(
+                main_repo, worktree_repo, agent_id, session
+            )
+        else:
+            # Default to newest_file_wins for backward compatibility
+            return self._resolve_conflicts_newest_wins(
+                main_repo, worktree_repo, agent_id, session
+            )
+
+    def _queue_conflicts_for_agent_resolution(
+        self,
+        main_repo: Repo,
+        worktree_repo: Repo,
+        agent_id: str,
+        session: Session,
+    ) -> List[Dict[str, Any]]:
+        """Queue conflicts for AI agent resolution instead of automatic resolution.
+
+        Args:
+            main_repo: Main repository with conflicts
+            worktree_repo: Agent's worktree repository
+            agent_id: Agent identifier
+            session: Database session
+
+        Returns:
+            List of queued conflicts (with status='queued')
+        """
+        from src.services.diff_resolution_service import get_diff_resolution_service
+
+        logger.info(f"[GIT-MERGE:{agent_id}] _queue_conflicts_for_agent_resolution: Queueing conflicts for AI resolution")
+
+        diff_service = get_diff_resolution_service(self.db_manager)
+        conflicts_queued = []
+
+        # Get list of conflicted files
+        logger.info(f"[GIT-MERGE:{agent_id}] Running 'git diff --name-only --diff-filter=U' to find conflicts")
+        conflicted_files = main_repo.git.diff("--name-only", "--diff-filter=U").splitlines()
+
+        logger.info(f"[GIT-MERGE:{agent_id}] Found {len(conflicted_files)} conflicted files to queue")
+        if conflicted_files:
+            logger.info(f"[GIT-MERGE:{agent_id}] Conflicted files: {conflicted_files}")
+
+        for idx, file_path in enumerate(conflicted_files, 1):
+            logger.info(f"[GIT-MERGE:{agent_id}] Queueing conflict {idx}/{len(conflicted_files)}: {file_path}")
+
+            # Get file timestamps
+            parent_timestamp = self._get_file_timestamp(main_repo, file_path, "HEAD")
+            child_timestamp = self._get_file_timestamp(worktree_repo, file_path, "HEAD")
+
+            # Get file contents
+            parent_content = self._get_file_content(main_repo, file_path, "HEAD")
+            child_content = self._get_file_content(worktree_repo, file_path)
+
+            # Get diff context
+            try:
+                diff_context = main_repo.git.diff("HEAD", "MERGE_HEAD", "--", file_path)
+            except Exception as e:
+                logger.warning(f"[GIT-MERGE:{agent_id}] Could not get diff context: {e}")
+                diff_context = None
+
+            # Queue the diff for resolution
+            diff_id = diff_service.queue_diff_for_resolution(
+                merge_agent_id=agent_id,
+                worktree_agent_id=agent_id,
+                file_path=file_path,
+                parent_content=parent_content,
+                child_content=child_content,
+                parent_timestamp=parent_timestamp,
+                child_timestamp=child_timestamp,
+                diff_context=diff_context,
+                session=session,
+            )
+
+            conflicts_queued.append({
+                "file": file_path,
+                "diff_id": diff_id,
+                "status": "queued",
+                "parent_timestamp": parent_timestamp.isoformat() if parent_timestamp else None,
+                "child_timestamp": child_timestamp.isoformat() if child_timestamp else None,
+            })
+
+            logger.info(f"[GIT-MERGE:{agent_id}]   ✓ Queued diff {diff_id}")
+
+        logger.info(f"[GIT-MERGE:{agent_id}] ✓ All {len(conflicted_files)} conflicts queued for AI resolution")
+
+        # Abort the current merge since we need to wait for resolution
+        logger.info(f"[GIT-MERGE:{agent_id}] Aborting merge to wait for AI resolution")
+        try:
+            main_repo.git.merge("--abort")
+        except Exception as e:
+            logger.warning(f"[GIT-MERGE:{agent_id}] Merge abort warning: {e}")
+
+        return conflicts_queued
+
+    async def apply_resolved_diffs(
+        self,
+        agent_id: str,
+        diff_ids: List[str],
+    ) -> Dict[str, Any]:
+        """Apply resolved diffs to the repository.
+
+        After the AI agent resolves diffs, this method applies them.
+
+        Args:
+            agent_id: Agent identifier
+            diff_ids: List of resolved diff IDs to apply
+
+        Returns:
+            Dictionary with application results
+        """
+        from src.services.diff_resolution_service import get_diff_resolution_service
+
+        logger.info(f"[GIT-MERGE:{agent_id}] Applying {len(diff_ids)} resolved diffs")
+
+        diff_service = get_diff_resolution_service(self.db_manager)
+        session = self.db_manager.get_session()
+        applied = []
+        failed = []
+
+        try:
+            for diff_id in diff_ids:
+                result = diff_service.get_resolved_content(diff_id, session)
+                if result is None:
+                    logger.warning(f"[GIT-MERGE:{agent_id}] Diff {diff_id} not resolved or not found")
+                    failed.append({"diff_id": diff_id, "error": "Not resolved or not found"})
+                    continue
+
+                resolution_choice, content = result
+                diff_status = diff_service.get_diff_status(diff_id, session)
+                file_path = diff_status["file_path"]
+
+                logger.info(f"[GIT-MERGE:{agent_id}] Applying resolution for {file_path}: {resolution_choice}")
+
+                # Write the resolved content
+                self._write_file_content(self.main_repo.working_dir, file_path, content)
+
+                # Stage the file
+                self.main_repo.git.add(file_path)
+
+                applied.append({
+                    "diff_id": diff_id,
+                    "file_path": file_path,
+                    "resolution_choice": resolution_choice,
+                })
+
+            if applied:
+                # Commit the resolved changes
+                commit_message = f"[Agent {agent_id}] Applied AI-resolved diffs for {len(applied)} files"
+                self.main_repo.git.commit("-m", commit_message, "--no-verify")
+                commit_sha = self.main_repo.head.commit.hexsha
+                logger.info(f"[GIT-MERGE:{agent_id}] ✓ Committed resolved diffs: {commit_sha}")
+            else:
+                commit_sha = None
+
+            return {
+                "status": "success" if not failed else "partial",
+                "applied": applied,
+                "failed": failed,
+                "commit_sha": commit_sha,
+            }
+
+        except Exception as e:
+            logger.error(f"[GIT-MERGE:{agent_id}] Failed to apply resolved diffs: {e}")
+            session.rollback()
+            raise
+        finally:
+            session.close()
 
     def _resolve_conflicts_newest_wins(
         self,

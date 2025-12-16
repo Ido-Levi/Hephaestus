@@ -53,7 +53,16 @@ class Config:
         self.base_branch = git.get('base_branch', 'main')  # Base branch/commit for merging
         self.worktree_branch_prefix = git.get('worktree_branch_prefix', 'agent-')
         self.auto_commit = git.get('auto_commit', True)
-        self.conflict_resolution_strategy = git.get('conflict_resolution', 'newest_file_wins')
+        self.conflict_resolution_strategy = git.get('conflict_resolution', 'agent_resolution')
+
+        # Diff resolution settings (when conflict_resolution = 'agent_resolution')
+        diff_resolution = config.get('diff_resolution', {})
+        self.diff_resolution_batch_size = diff_resolution.get('batch_size', 3)
+        self.diff_resolution_temperature = diff_resolution.get('temperature', 0.3)
+        self.diff_resolution_max_tokens = diff_resolution.get('max_tokens', 8000)
+        self.diff_resolution_model = diff_resolution.get('model', None)  # Falls back to default model if None
+        self.diff_resolution_provider = diff_resolution.get('provider', None)  # Falls back to default provider if None
+        self.diff_resolution_timeout_seconds = diff_resolution.get('timeout_seconds', 300)
 
         # LLM settings
         llm = config.get('llm', {})
@@ -64,6 +73,7 @@ class Config:
         self.default_temperature = llm.get('default_temperature', 0.7)
         self.default_max_tokens = llm.get('default_max_tokens', 4000)
         self.embedding_model = llm.get('embedding_model', 'text-embedding-3-large')
+        self.embedding_provider = llm.get('embedding_provider', 'openai')
         self.system_prompt_max_length = llm.get('system_prompt_max_length', 8000)
 
         # Agent settings

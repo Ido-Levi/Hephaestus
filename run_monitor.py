@@ -65,7 +65,8 @@ async def setup_monitoring_system():
         from src.memory.vector_store import VectorStoreManager
         vector_store = VectorStoreManager(
             qdrant_url=config.qdrant_url,
-            collection_prefix=config.qdrant_collection_prefix
+            collection_prefix=config.qdrant_collection_prefix,
+            embedding_dimension=config.embedding_dimension
         )
         logger.info("Vector store manager initialized")
 

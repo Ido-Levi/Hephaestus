@@ -24,7 +24,8 @@ def vector_store():
     config = get_config()
     return VectorStoreManager(
         qdrant_url=config.qdrant_url,
-        collection_prefix="test_qdrant_mcp"
+        collection_prefix="test_qdrant_mcp",
+        embedding_dimension=config.embedding_dimension
     )
 
 

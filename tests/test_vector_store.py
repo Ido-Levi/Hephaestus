@@ -44,7 +44,7 @@ async def test_vector_store_operations():
 
     # Initialize components
     config = Config()
-    vector_store = VectorStoreManager()
+    vector_store = VectorStoreManager(embedding_dimension=config.embedding_dimension)
     llm_provider = OpenAIProvider(
         api_key=config.openai_api_key,
         model=config.llm_model,
@@ -61,7 +61,8 @@ async def test_vector_store_operations():
             embedding = await llm_provider.generate_embedding(memory_data["content"])
 
             # Verify embedding dimension
-            assert len(embedding) == 3072, f"Expected 3072 dimensions, got {len(embedding)}"
+            expected_dim = config.embedding_dimension
+            assert len(embedding) == expected_dim, f"Expected {expected_dim} dimensions, got {len(embedding)}"
 
             # Store memory (use UUID string for Qdrant)
             memory_id = str(uuid.uuid4())

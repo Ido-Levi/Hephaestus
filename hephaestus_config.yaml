@@ -11,7 +11,12 @@ git:
   main_repo_path: /tmp/test_3gaur34
   worktree_branch_prefix: agent-
   auto_commit: true
-  conflict_resolution: newest_file_wins
+  conflict_resolution: agent_resolution  # Options: newest_file_wins, agent_resolution
+diff_resolution:
+  batch_size: 3  # Process diffs in batches of 3
+  temperature: 0.3  # Lower temperature for more deterministic resolution
+  max_tokens: 8000
+  timeout_seconds: 300
 llm:
   embedding_model: text-embedding-3-large
   embedding_provider: openai
